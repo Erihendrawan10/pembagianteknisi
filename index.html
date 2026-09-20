@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Pembagian teknisi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#EDF1F2; --surface:#FFFFFF; --ink:#15262E; --muted:#5B6B73; --line:#D3DCDF;
+  --accent:#0B6E7A; --accent-ink:#FFFFFF; --soft:#E3EBED; --warn:#8A4306; --warn-bg:#FCEEDB; --danger:#B3261E; --ok:#1B6B3A; --ok-bg:#DDF1E4;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A1F; --surface:#16252C; --ink:#E6EEF0; --muted:#93A5AC; --line:#2A3B42;
+    --accent:#4FC3CF; --accent-ink:#06262B; --soft:#213238; --warn:#F2B872; --warn-bg:#3A2A14; --danger:#FF8A80; --ok:#7FD9A0; --ok-bg:#183524;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A1F; --surface:#16252C; --ink:#E6EEF0; --muted:#93A5AC; --line:#2A3B42;
+  --accent:#4FC3CF; --accent-ink:#06262B; --soft:#213238; --warn:#F2B872; --warn-bg:#3A2A14; --danger:#FF8A80; --ok:#7FD9A0; --ok-bg:#183524;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 "Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:780px;margin:0 auto;padding:16px 14px 80px}
+h1{font-size:24px;line-height:1.15;margin:4px 0 10px;font-weight:700;letter-spacing:-.015em}
+h2{font-size:17px;margin:0 0 6px;font-weight:700}
+h3{font-size:15px;margin:0 0 4px;font-weight:700}
+.tabs{display:flex;gap:4px;position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0 0;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabs button{flex:1;min-height:46px;background:transparent;border:0;border-bottom:3px solid transparent;color:var(--muted);font:600 15px/1 inherit;font-family:inherit;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.hint{color:var(--muted);margin:0 0 10px;font-size:14px}
+textarea{width:100%;min-height:120px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);color:var(--ink);font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto}
+input[type=number],input[type=text],input[type=date],input[type=url],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 12px;min-height:44px;width:100%}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:12px}
+.field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-bottom:8px}
+.check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent)}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;font:600 15px/1 inherit;font-family:inherit;border:1px solid transparent;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);background:transparent}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:var(--line)}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn.small{min-height:38px;padding:0 12px;font-size:14px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.bar input[type=date]{width:auto;flex:0 1 190px}
+#status{font-size:13px;color:var(--muted);margin:0 0 10px}
+#status.err{color:var(--danger);font-weight:600}
+.notice{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 8px}
+.undo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--soft);border-radius:10px;padding:8px 8px 8px 12px;font-size:14px;margin-bottom:10px}
+.mapbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px}
+.mapbox svg{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px;font-size:13px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;background:var(--tc)}
+.info{min-height:20px;font-size:13px;color:var(--muted);margin-top:6px}
+.tech{border-left:6px solid var(--tc);padding-top:12px}
+.thead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:4px}
+.tname{font-weight:700;font-size:18px;flex:1 1 140px;min-width:0;margin:0}
+.badge{font-weight:700;font-variant-numeric:tabular-nums;background:var(--soft);border-radius:999px;padding:3px 10px;font-size:14px}
+.badge.over{background:var(--warn-bg);color:var(--warn)}
+.tmeta{font-size:13px;color:var(--muted);margin:0 0 6px}
+.stops{list-style:none;margin:8px 0 0;padding:0}
+.stop{display:grid;grid-template-columns:28px 1fr;gap:6px 10px;padding:12px 0;border-top:1px solid var(--line)}
+.seq{width:28px;height:28px;border-radius:50%;background:var(--tc);color:#fff;font-weight:700;font-size:13px;display:grid;place-items:center}
+.stop b{font-weight:600}
+.chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;background:var(--soft);color:var(--ink);margin-left:4px;vertical-align:1px}
+.chip.time{background:var(--accent);color:var(--accent-ink)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.new{background:var(--ok-bg);color:var(--ok)}
+.addr{overflow-wrap:anywhere}
+.meta{font-size:13px;color:var(--muted)}
+.rest{font-size:13px;color:var(--muted);font-style:italic}
+select.mv{grid-column:2;font-size:14px;min-height:40px;max-width:280px}
+.tfoot{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.empty{color:var(--muted);font-size:14px;margin:4px 0 0}
+.tk{border-left:6px solid var(--tc)}
+.tk.off{opacity:.75}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--ok-bg);color:var(--ok)}
+.pill.off{background:var(--warn-bg);color:var(--warn)}
+details{margin-bottom:12px}
+details>summary{cursor:pointer;font-weight:600;min-height:36px;display:flex;align-items:center}
+details.card>summary{margin:-4px 0 0}
+.how li{margin-bottom:6px;color:var(--muted);font-size:14px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;max-width:90vw;opacity:0;pointer-events:none;z-index:20}
+.toast.on{opacity:1}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Pembagian teknisi</h1>
+  <nav class="tabs" role="tablist" aria-label="Menu">
+    <button role="tab" id="tab-tugas" data-tab="tugas" aria-selected="true" aria-controls="p-tugas">Penugasan</button>
+    <button role="tab" id="tab-teknisi" data-tab="teknisi" aria-selected="false" aria-controls="p-teknisi">Teknisi</button>
+    <button role="tab" id="tab-atur" data-tab="atur" aria-selected="false" aria-controls="p-atur">Pengaturan</button>
+  </nav>
+
+  <!-- PENUGASAN -->
+  <section id="p-tugas" role="tabpanel" aria-labelledby="tab-tugas">
+    <div class="bar">
+      <input type="date" id="date" aria-label="Tanggal penugasan">
+      <button class="btn ghost small" id="refresh" type="button">Perbarui data</button>
+    </div>
+    <p id="status" role="status"></p>
+    <div id="out"></div>
+  </section>
+
+  <!-- TEKNISI -->
+  <section id="p-teknisi" role="tabpanel" aria-labelledby="tab-teknisi" hidden>
+    <div class="card">
+      <h2 id="tsum">Teknisi</h2>
+      <p class="hint">Alamat domisili dipakai untuk mencocokkan alamat customer ke teknisi yang tinggalnya paling dekat. Tombol “berhalangan” hanya berlaku untuk tanggal yang sedang dipilih di tab Penugasan.</p>
+    </div>
+    <div id="tlist"></div>
+    <details class="card" id="tform-box">
+      <summary id="tform-title">Tambah teknisi</summary>
+      <div style="margin-top:10px">
+        <input type="hidden" id="f-id">
+        <div class="fields">
+          <label class="field"><span>Nama</span><input type="text" id="f-nama" autocomplete="off"></label>
+          <label class="field"><span>Telepon</span><input type="text" id="f-telp" inputmode="tel" autocomplete="off"></label>
+          <label class="field"><span>Alamat domisili</span><input type="text" id="f-alamat" autocomplete="off"></label>
+          <label class="field"><span>Kota / kabupaten</span><select id="f-kota"></select></label>
+          <label class="field"><span>Kecamatan</span><input type="text" id="f-kec" list="kec-list" autocomplete="off"></label>
+          <label class="field"><span>Koordinat rumah (opsional)</span><input type="text" id="f-koord" placeholder="-6.2345, 106.8123" autocomplete="off"></label>
+        </div>
+        <datalist id="kec-list"></datalist>
+        <p class="notice" id="f-err" hidden></p>
+        <div class="row">
+          <button class="btn primary" id="f-save" type="button">Simpan teknisi</button>
+          <button class="btn ghost" id="f-cancel" type="button">Batal</button>
+        </div>
+      </div>
+    </details>
+    <details class="card">
+      <summary>Impor banyak teknisi sekaligus</summary>
+      <p class="hint" style="margin-top:8px">Tempel dari spreadsheet dengan urutan kolom: nama, telepon, alamat domisili, kecamatan, kota, provinsi. Nama yang sudah ada akan diperbarui.</p>
+      <textarea id="bulk" spellcheck="false" placeholder="Tempel data teknisi di sini"></textarea>
+      <div class="row"><button class="btn ghost" id="bulk-go" type="button">Impor teknisi</button></div>
+    </details>
+  </section>
+
+  <!-- PENGATURAN -->
+  <section id="p-atur" role="tabpanel" aria-labelledby="tab-atur" hidden>
+    <div class="card">
+      <h2>Sumber data</h2>
+      <div class="fields">
+        <label class="field"><span>Link spreadsheet customer</span><input type="url" id="s-cust" placeholder="https://docs.google.com/spreadsheets/d/e/..." autocomplete="off"></label>
+        <label class="field"><span>Link spreadsheet teknisi (opsional)</span><input type="url" id="s-tek" placeholder="https://docs.google.com/spreadsheets/d/e/..." autocomplete="off"></label>
+      </div>
+      <details class="how">
+        <summary>Cara mendapatkan link</summary>
+        <ul>
+          <li>Buka Google Sheets, pilih File, Bagikan, Publikasikan ke web.</li>
+          <li>Pilih sheet yang berisi customer, ubah format ke CSV, lalu tekan Publikasikan dan salin link-nya. Ulangi untuk sheet teknisi jika ada.</li>
+          <li>Kolom customer: nama, telepon, alamat, kecamatan, kota, provinsi, catatan. Jika ada baris judul dengan kolom “Tanggal”, hanya alamat pada tanggal yang dipilih yang dipakai.</li>
+          <li>Siapa pun yang memegang link ini bisa membaca isi sheet. Jangan taruh link di repositori GitHub yang publik.</li>
+        </ul>
+      </details>
+    </div>
+    <div class="card">
+      <h2>Aturan pembagian</h2>
+      <div class="fields">
+        <label class="field"><span>Maksimal alamat per teknisi</span><input type="number" id="s-cap" min="1" max="20" inputmode="numeric"></label>
+        <label class="field"><span>Cara pembagian</span>
+          <select id="s-mode"><option value="ratakan">Ratakan ke semua teknisi yang hadir</option><option value="hemat">Isi penuh, pakai teknisi sesedikit mungkin</option></select></label>
+        <label class="field"><span>Perbarui data otomatis</span>
+          <select id="s-int"><option value="0">Tidak</option><option value="2">Tiap 2 menit</option><option value="5">Tiap 5 menit</option><option value="10">Tiap 10 menit</option><option value="15">Tiap 15 menit</option></select></label>
+      </div>
+      <label class="check"><input type="checkbox" id="s-toren"><span>Hitung “2 toren” di catatan sebagai 2 alamat</span></label>
+      <div class="row">
+        <button class="btn primary" id="s-save" type="button">Simpan dan perbarui</button>
+        <button class="btn ghost" id="s-share" type="button">Salin link untuk korlap</button>
+      </div>
+      <p class="hint" style="margin-top:10px">Link untuk korlap membawa pengaturan ini (termasuk link spreadsheet), jadi kirim lewat jalur pribadi saja.</p>
+    </div>
+    <details class="card">
+      <summary>Tempel data customer manual</summary>
+      <p class="hint" style="margin-top:8px">Untuk mencoba tanpa spreadsheet. Data ini hilang saat halaman ditutup.</p>
+      <textarea id="manual" spellcheck="false" placeholder="Tempel baris customer dari spreadsheet di sini"></textarea>
+      <div class="row">
+        <button class="btn ghost" id="m-go" type="button">Pakai data ini</button>
+        <button class="btn ghost" id="m-sample" type="button">Muat data contoh</button>
+        <button class="btn ghost" id="m-clear" type="button">Hapus data contoh</button>
+      </div>
+    </details>
+    <details class="how">
+      <summary>Cara kerja dan batasannya</summary>
+      <ul>
+        <li>Posisi alamat memakai titik tengah kecamatan, jadi jarak yang tampil berupa perkiraan. Koordinat seperti -6.2345, 106.8123 di kolom alamat membuat posisinya tepat.</li>
+        <li>Perubahan korlap (pindah alamat, teknisi berhalangan) tersimpan di browser perangkat ini untuk tiap tanggal. Perangkat lain tidak ikut melihatnya. Gunakan tombol salin untuk membagikan hasil akhir.</li>
+        <li>Alamat baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat yang masih punya slot, tanpa mengubah pembagian yang sudah ada.</li>
+        <li>Catatan “Teknisi Hendi” mengunci alamat ke teknisi bernama Hendi. Catatan “Jam 10” jadi patokan urutan kunjungan (jam 1 sampai 6 dibaca sore).</li>
+      </ul>
+    </details>
+  </section>
+</main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/*LOGIC_START*/
+// Boleh diisi sebelum diunggah, tapi jangan taruh link spreadsheet di repositori publik.
+const REPO_CONFIG={cust:'',tek:'',cap:8,mode:'ratakan',interval:5,toren:false};
+const COLORS=['#1F6FEB','#E4572E','#2E9E5B','#8E44AD','#C79A00','#C2185B','#00838F','#8D6E63','#546E7A','#7CB342'];
+const HOME_W=0.35;
+const KOTA_LIST=['Kota Tangerang','Kab. Tangerang','Kota Tangerang Selatan','Kota Jakarta Selatan','Kota Jakarta Barat','Kota Jakarta Pusat','Kota Jakarta Utara','Kota Jakarta Timur','Kota Depok','Kota Bekasi','Kab. Bekasi','Kota Bogor','Kabupaten Bogor'];
+
+// Titik tengah kecamatan (perkiraan): wilayah|Kecamatan,lat,lng;...
+const GEO_RAW=`tangkot|Batuceper,-6.155,106.665;Benda,-6.150,106.610;Cibodas,-6.200,106.590;Ciledug,-6.230,106.710;Cipondoh,-6.192,106.679;Jatiuwung,-6.180,106.580;Karangtengah,-6.200,106.700;Karawaci,-6.180,106.610;Larangan,-6.240,106.730;Neglasari,-6.140,106.640;Periuk,-6.170,106.580;Pinang,-6.230,106.680;Tangerang,-6.170,106.630
+tangkab|Balaraja,-6.220,106.450;Cikupa,-6.230,106.510;Curug,-6.260,106.570;Cisauk,-6.330,106.630;Kelapa Dua,-6.230,106.620;Legok,-6.280,106.600;Pagedangan,-6.300,106.630;Pasar Kemis,-6.180,106.530;Panongan,-6.300,106.540;Sepatan,-6.100,106.580;Sepatan Timur,-6.100,106.600;Teluknaga,-6.090,106.650;Kosambi,-6.100,106.680;Mauk,-6.050,106.540;Kresek,-6.140,106.400;Tigaraksa,-6.270,106.490;Jayanti,-6.220,106.460;Jambe,-6.320,106.420;Rajeg,-6.120,106.530;Sindang Jaya,-6.230,106.470;Solear,-6.290,106.460;Sukadiri,-6.050,106.500;Pakuhaji,-6.090,106.610;Kronjo,-6.050,106.430;Kemiri,-6.050,106.450;Cisoka,-6.300,106.440;Sukamulya,-6.250,106.430;Gunung Kaler,-6.150,106.440;Mekar Baru,-6.100,106.430
+tangsel|Ciputat,-6.310,106.740;Ciputat Timur,-6.310,106.760;Pamulang,-6.340,106.740;Pondok Aren,-6.270,106.710;Serpong,-6.320,106.670;Serpong Utara,-6.260,106.670;Setu,-6.340,106.690
+jaksel|Cilandak,-6.290,106.790;Jagakarsa,-6.330,106.820;Kebayoran Baru,-6.240,106.800;Kebayoran Lama,-6.250,106.770;Mampang Prapatan,-6.250,106.820;Pancoran,-6.250,106.840;Pasar Minggu,-6.290,106.840;Pesanggrahan,-6.250,106.750;Setiabudi,-6.210,106.830;Tebet,-6.230,106.850
+jakbar|Cengkareng,-6.150,106.740;Grogol Petamburan,-6.160,106.790;Kalideres,-6.140,106.700;Kebon Jeruk,-6.190,106.770;Kembangan,-6.190,106.740;Palmerah,-6.200,106.790;Taman Sari,-6.150,106.810;Tambora,-6.150,106.800
+jakpus|Cempaka Putih,-6.180,106.870;Gambir,-6.170,106.820;Johar Baru,-6.180,106.860;Kemayoran,-6.160,106.850;Menteng,-6.190,106.830;Sawah Besar,-6.160,106.830;Senen,-6.170,106.840;Tanah Abang,-6.200,106.810
+jakut|Cilincing,-6.120,106.940;Kelapa Gading,-6.160,106.900;Koja,-6.120,106.900;Pademangan,-6.130,106.840;Penjaringan,-6.120,106.780;Tanjung Priok,-6.120,106.880
+jaktim|Cakung,-6.180,106.950;Cipayung,-6.330,106.900;Ciracas,-6.320,106.880;Duren Sawit,-6.230,106.930;Jatinegara,-6.220,106.870;Kramat Jati,-6.280,106.870;Makasar,-6.270,106.890;Matraman,-6.200,106.860;Pasar Rebo,-6.320,106.860;Pulo Gadung,-6.190,106.900
+depok|Beji,-6.370,106.820;Bojongsari,-6.380,106.760;Cilodong,-6.430,106.800;Cimanggis,-6.380,106.870;Cinere,-6.330,106.780;Cipayung,-6.420,106.790;Limo,-6.360,106.780;Pancoran Mas,-6.400,106.810;Sawangan,-6.400,106.760;Sukmajaya,-6.390,106.840;Tapos,-6.430,106.870
+bekkot|Bekasi Barat,-6.230,106.980;Bekasi Selatan,-6.260,106.980;Bekasi Timur,-6.250,107.020;Bekasi Utara,-6.190,106.990;Bantargebang,-6.330,106.990;Jatiasih,-6.300,106.950;Jatisampurna,-6.360,106.920;Medan Satria,-6.210,106.970;Mustika Jaya,-6.300,107.020;Pondok Gede,-6.270,106.910;Pondok Melati,-6.290,106.910;Rawalumbu,-6.280,107.020
+bekkab|Setu,-6.360,107.060;Cikarang Barat,-6.290,107.100;Cikarang Pusat,-6.340,107.150;Cikarang Selatan,-6.370,107.140;Cikarang Timur,-6.280,107.180;Cikarang Utara,-6.260,107.130;Cibitung,-6.260,107.080;Tambun Selatan,-6.260,107.050;Tambun Utara,-6.190,107.050;Babelan,-6.180,107.030;Tarumajaya,-6.120,107.040;Sukatani,-6.190,107.120;Serang Baru,-6.340,107.180;Kedungwaringin,-6.220,107.180;Cabangbungin,-6.130,107.120;Muara Gembong,-6.050,107.000;Sukakarya,-6.260,107.200;Sukawangi,-6.150,107.150;Bojongmangu,-6.320,107.210;Pebayuran,-6.200,107.210;Karangbahagia,-6.230,107.100;Cibarusah,-6.400,107.100;Tambelang,-6.150,107.200
+bogkab|Sukaraja,-6.590,106.850;Cibinong,-6.480,106.850;Bojonggede,-6.500,106.800;Citeureup,-6.480,106.890;Gunung Putri,-6.460,106.900;Cileungsi,-6.400,106.960;Cisarua,-6.670,106.940;Ciawi,-6.650,106.850;Megamendung,-6.650,106.900;Dramaga,-6.580,106.740;Ciomas,-6.600,106.770;Tamansari,-6.630,106.770;Cijeruk,-6.660,106.800;Caringin,-6.700,106.860;Kemang,-6.520,106.730;Parung,-6.420,106.730;Gunungsindur,-6.440,106.710;Ciseeng,-6.470,106.680;Rumpin,-6.470,106.630;Cigudeg,-6.510,106.500;Leuwiliang,-6.580,106.600;Jonggol,-6.470,107.050;Klapanunggal,-6.460,106.960;Babakan Madang,-6.540,106.900;Tajurhalang,-6.450,106.770;Cibungbulang,-6.550,106.660;Ciampea,-6.570,106.700;Pamijahan,-6.630,106.640;Tenjolaya,-6.640,106.710;Cigombong,-6.750,106.830
+bogkot|Bogor Barat,-6.580,106.780;Bogor Selatan,-6.630,106.800;Bogor Tengah,-6.590,106.790;Bogor Timur,-6.590,106.810;Bogor Utara,-6.570,106.810;Tanah Sareal,-6.560,106.790`;
+
+const CITY={tangkab:[-6.19,106.52],tangkot:[-6.18,106.63],tangsel:[-6.29,106.71],jaksel:[-6.26,106.81],jakbar:[-6.17,106.75],jakpus:[-6.18,106.83],jakut:[-6.13,106.88],jaktim:[-6.25,106.90],depok:[-6.40,106.82],bekkot:[-6.24,106.99],bekkab:[-6.30,107.12],bogkab:[-6.50,106.83],bogkot:[-6.595,106.80]};
+const AMBIG={tangx:['tangkot','tangkab'],bekx:['bekkot','bekkab'],bogx:['bogkot','bogkab']};
+
+function norm(s){return String(s||'').toLowerCase().replace(/^(kecamatan|kec\.?)\s*/,'').replace(/[^a-z0-9]/g,'');}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);}
+
+const KEC={},BYNAME={},REGNAMES={};
+GEO_RAW.split('\n').forEach(function(line){
+  line=line.trim(); if(!line) return;
+  const parts=line.split('|'), reg=parts[0]; REGNAMES[reg]=[];
+  parts[1].split(';').forEach(function(e){
+    const p=e.split(','); if(p.length<3) return;
+    const nm=norm(p[0]), v={region:reg,name:p[0],lat:+p[1],lng:+p[2]};
+    KEC[reg+'|'+nm]=v; (BYNAME[nm]=BYNAME[nm]||[]).push(v); REGNAMES[reg].push(p[0]);
+  });
+});
+
+function regionOf(kota){
+  const s=String(kota||'').toLowerCase();
+  const kab=/\bkab/.test(s), kt=/\bkota\b/.test(s);
+  if(/tangerang\s*selatan|tangsel/.test(s)) return 'tangsel';
+  if(/tangerang/.test(s)) return kab?'tangkab':(kt?'tangkot':'tangx');
+  if(/jakarta\s*selatan|jaksel/.test(s)) return 'jaksel';
+  if(/jakarta\s*barat|jakbar/.test(s)) return 'jakbar';
+  if(/jakarta\s*pusat|jakpus/.test(s)) return 'jakpus';
+  if(/jakarta\s*utara|jakut/.test(s)) return 'jakut';
+  if(/jakarta\s*timur|jaktim/.test(s)) return 'jaktim';
+  if(/depok/.test(s)) return 'depok';
+  if(/bekasi/.test(s)) return kab?'bekkab':(kt?'bekkot':'bekx');
+  if(/bogor/.test(s)) return kab?'bogkab':(kt?'bogkot':'bogx');
+  return '';
+}
+
+// Hasil: {lat,lng,level} dengan level 'koord' | 'kec' | 'kota' | 'none'
+function geocode(r){
+  const txt=[r.alamat,r.kec,r.kota,r.prov,r.note,r.raw].join(' ');
+  const m=txt.match(/(-?\d{1,2}\.\d{3,})\s*[, ]\s*(\d{2,3}\.\d{3,})/);
+  if(m){
+    const la=parseFloat(m[1]), ln=parseFloat(m[2]);
+    if(la>=-11&&la<=6&&ln>=95&&ln<=141) return {lat:la,lng:ln,level:'koord'};
+  }
+  const reg=regionOf(r.kota), k=norm(r.kec);
+  const cands=BYNAME[k]||[];
+  if(reg&&KEC[reg+'|'+k]){const v=KEC[reg+'|'+k]; return {lat:v.lat,lng:v.lng,level:'kec'};}
+  if(AMBIG[reg]){
+    for(const rg of AMBIG[reg]){ if(KEC[rg+'|'+k]){const v=KEC[rg+'|'+k]; return {lat:v.lat,lng:v.lng,level:'kec'};} }
+    const c=CITY[AMBIG[reg][0]]; return {lat:c[0],lng:c[1],level:'kota'};
+  }
+  if(!reg&&cands.length===1) return {lat:cands[0].lat,lng:cands[0].lng,level:'kec'};
+  if(CITY[reg]) return {lat:CITY[reg][0],lng:CITY[reg][1],level:'kota'};
+  return {lat:null,lng:null,level:'none'};
+}
+
+function dist(a,b){
+  const R=6371,t=Math.PI/180;
+  const dLa=(b.lat-a.lat)*t, dLn=(b.lng-a.lng)*t;
+  const s=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(a.lat*t)*Math.cos(b.lat*t)*Math.sin(dLn/2)*Math.sin(dLn/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));
+}
+function centroid(list){
+  const l=list.filter(function(p){return p&&p.lat!=null;});
+  if(!l.length) return null;
+  let la=0,ln=0; l.forEach(function(p){la+=p.lat;ln+=p.lng;});
+  return {lat:la/l.length,lng:ln/l.length};
+}
+
+function parseDelim(text,d){
+  const rows=[]; let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=ch;
+    } else if(ch==='"'&&cell===''){ q=true; }
+    else if(ch===d){ row.push(cell); cell=''; }
+    else if(ch==='\n'||ch==='\r'){
+      if(ch==='\r'&&text[i+1]==='\n') i++;
+      row.push(cell); cell=''; rows.push(row); row=[];
+    } else cell+=ch;
+  }
+  row.push(cell); rows.push(row);
+  return rows.filter(function(r){return r.some(function(c){return c.trim()!=='';});});
+}
+function detectDelim(text){
+  const first=text.split(/\r?\n/).find(function(l){return l.trim();})||'';
+  if(first.indexOf('\t')>=0) return '\t';
+  const sc=(first.match(/;/g)||[]).length, cm=(first.match(/,/g)||[]).length;
+  return sc>cm?';':',';
+}
+
+const MON={jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,agt:8,aug:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
+function parseDateStr(s){
+  s=String(s||'').trim(); if(!s) return '';
+  let m,y,mo,d;
+  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))){y=+m[1];mo=+m[2];d=+m[3];}
+  else if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){d=+m[1];mo=+m[2];y=+m[3];if(y<100) y+=2000;}
+  else if((m=s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\.?\s+(\d{2,4})/))){d=+m[1];mo=MON[m[2].slice(0,3).toLowerCase()]||0;y=+m[3];if(y<100) y+=2000;}
+  else return '';
+  if(!mo||mo>12||d<1||d>31) return '';
+  return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+
+const JAM_RE=/jam\s*(\d{1,2})(?:[.:](\d{2}))?/i;
+const TEK_RE=/teknisi\s+([a-z]+)/i;
+const TOREN_RE=/(\d+)\s*toren/i;
+function parseNote(note){
+  const n=String(note||'');
+  const j=n.match(JAM_RE), t=n.match(TEK_RE), o=n.match(TOREN_RE);
+  const rest=n.replace(JAM_RE,'').replace(TEK_RE,'').replace(TOREN_RE,'').replace(/\s{2,}/g,' ').replace(/^[\s.,;:-]+|[\s.,;:-]+$/g,'').replace(/(\s*[.,;]\s*){2,}/g,'. ');
+  return {
+    jam:j?parseInt(j[1],10):null,
+    jamText:j?('Jam '+j[1]+(j[2]?(':'+j[2]):'')):'',
+    pin:t?(t[1].charAt(0).toUpperCase()+t[1].slice(1).toLowerCase()):'',
+    toren:o?parseInt(o[1],10):0,
+    rest:rest
+  };
+}
+
+// Customer: {rows, hasDate}
+function mapRows(aoa){
+  if(!aoa.length) return {rows:[],hasDate:false};
+  let start=0, dateIdx=-1, idx={nama:0,telp:1,alamat:2,kec:3,kota:4,prov:5,note:6};
+  const h=aoa[0].map(function(c){return String(c).toLowerCase().trim();});
+  if(h.some(function(c){return /^(nama|name|customer|pelanggan)/.test(c);})&&h.some(function(c){return /alamat|address/.test(c);})){
+    start=1;
+    const find=function(re,def){const i=h.findIndex(function(c){return re.test(c);});return i<0?def:i;};
+    idx={nama:find(/^(nama|name|customer|pelanggan)/,0),telp:find(/telp|tlp|hp|phone|wa|kontak/,1),alamat:find(/alamat|address/,2),kec:find(/kecamatan|^kec/,3),kota:find(/kota|kab/,4),prov:find(/provinsi|^prov/,5),note:find(/catatan|note|ket/,6)};
+    dateIdx=h.findIndex(function(c){return /tanggal|^tgl|date|timestamp/.test(c);});
+  }
+  const used=Object.keys(idx).map(function(k){return idx[k];}).concat(dateIdx);
+  const out=[], seen={};
+  for(let i=start;i<aoa.length;i++){
+    const c=aoa[i].map(function(x){return String(x==null?'':x).trim();});
+    const g=function(k){return c[idx[k]]||'';};
+    const r={nama:g('nama'),telp:g('telp'),alamat:g('alamat'),kec:g('kec'),kota:g('kota'),prov:g('prov'),note:g('note'),raw:c.filter(function(_,ci){return used.indexOf(ci)<0&&ci>=7;}).join(' ')};
+    if(!r.alamat&&!r.kec&&!r.kota) continue;
+    r.date=dateIdx>=0?parseDateStr(c[dateIdx]):'';
+    const pn=parseNote(r.note);
+    r.jam=pn.jam; r.jamText=pn.jamText; r.pin=pn.pin; r.toren=pn.toren; r.rest=pn.rest;
+    const gc=geocode(r); r.lat=gc.lat; r.lng=gc.lng; r.level=gc.level;
+    let key=hash(norm(r.nama)+'|'+norm(r.alamat)+'|'+norm(r.telp)+'|'+r.date);
+    if(seen[key]){ seen[key]++; key+='_'+seen[key]; } else seen[key]=1;
+    r.key=key;
+    out.push(r);
+  }
+  return {rows:out,hasDate:dateIdx>=0};
+}
+
+// Teknisi: nama, telepon, alamat domisili, kecamatan, kota, provinsi
+function mapTechRows(aoa){
+  if(!aoa.length) return [];
+  let start=0, idx={nama:0,telp:1,alamat:2,kec:3,kota:4,prov:5};
+  const h=aoa[0].map(function(c){return String(c).toLowerCase().trim();});
+  if(h.some(function(c){return /^(nama|name|teknisi)/.test(c);})&&h.some(function(c){return /alamat|domisili|address/.test(c);})){
+    start=1;
+    const find=function(re,def){const i=h.findIndex(function(c){return re.test(c);});return i<0?def:i;};
+    idx={nama:find(/^(nama|name|teknisi)/,0),telp:find(/telp|tlp|hp|phone|wa|kontak/,1),alamat:find(/alamat|domisili|address/,2),kec:find(/kecamatan|^kec/,3),kota:find(/kota|kab/,4),prov:find(/provinsi|^prov/,5)};
+  }
+  const out=[], seen={};
+  for(let i=start;i<aoa.length;i++){
+    const c=aoa[i].map(function(x){return String(x==null?'':x).trim();});
+    const g=function(k){return c[idx[k]]||'';};
+    if(!g('nama')) continue;
+    let id='t_'+norm(g('nama')); if(seen[id]){seen[id]++;id+='_'+seen[id];} else seen[id]=1;
+    out.push({id:id,nama:g('nama'),telp:g('telp'),alamat:g('alamat'),kec:g('kec'),kota:g('kota'),prov:g('prov'),koord:c.slice(6).join(' ')});
+  }
+  return out;
+}
+function withGeo(t){
+  const gc=geocode({alamat:t.alamat,kec:t.kec,kota:t.kota,prov:t.prov,note:'',raw:t.koord||''});
+  return Object.assign({},t,{lat:gc.lat,lng:gc.lng,level:gc.level});
+}
+function matchTech(pin,list){
+  if(!pin) return null; const p=norm(pin);
+  return list.find(function(t){return norm(t.nama)===p;})||list.find(function(t){return norm(String(t.nama).split(/\s+/)[0])===p;})||null;
+}
+
+function hourKey(m){ if(m.jam==null) return null; return m.jam<7?m.jam+12:m.jam; }
+
+function orderRoute(list,home){
+  const geo=list.filter(function(m){return m.lat!=null;}), nog=list.filter(function(m){return m.lat==null;});
+  if(geo.length<3) return geo.slice().sort(function(a,b){const x=hourKey(a),y=hourKey(b);return (x==null?99:x)-(y==null?99:y);}).concat(nog);
+  const anchors=geo.filter(function(m){return m.jam!=null;}).sort(function(a,b){return hourKey(a)-hourKey(b);});
+  const rest=geo.filter(function(m){return m.jam==null;});
+  let route;
+  if(anchors.length){
+    route=anchors.slice();
+    rest.forEach(function(m){
+      let bp=0,bc=Infinity;
+      for(let p=0;p<=route.length;p++){
+        let cost;
+        if(p===0) cost=dist(m,route[0]);
+        else if(p===route.length) cost=dist(route[p-1],m);
+        else cost=dist(route[p-1],m)+dist(m,route[p])-dist(route[p-1],route[p]);
+        if(cost<bc){bc=cost;bp=p;}
+      }
+      route.splice(bp,0,m);
+    });
+  } else {
+    const ref=(home&&home.lat!=null)?home:null, c=centroid(rest);
+    let start=rest[0];
+    rest.forEach(function(m){
+      if(ref){ if(dist(m,ref)<dist(start,ref)) start=m; }
+      else if(dist(m,c)>dist(start,c)) start=m;
+    });
+    route=[start];
+    const left=rest.filter(function(m){return m!==start;});
+    while(left.length){
+      const last=route[route.length-1]; let bi=0,bd=Infinity;
+      left.forEach(function(m,i){const d=dist(last,m); if(d<bd){bd=d;bi=i;}});
+      route.push(left.splice(bi,1)[0]);
+    }
+  }
+  return route.concat(nog);
+}
+
+function maxPair(list){
+  const l=list.filter(function(m){return m.lat!=null;}); let mx=0;
+  for(let i=0;i<l.length;i++) for(let j=i+1;j<l.length;j++){ const d=dist(l[i],l[j]); if(d>mx) mx=d; }
+  return mx;
+}
+
+function blendCenter(t,members){
+  const c=centroid(members);
+  if(!c) return {lat:t.lat,lng:t.lng};
+  return {lat:t.lat*HOME_W+c.lat*(1-HOME_W),lng:t.lng*HOME_W+c.lng*(1-HOME_W)};
+}
+
+// items: [{id,lat,lng,w,pinTech}], techs: [{id,lat,lng}] -> {asg:Map(itemId->techId), unplaced:[ids], cost}
+function assignAll(items,techs,cap,quick){
+  const T=techs.length, res={asg:new Map(),unplaced:[],cost:0};
+  if(!T){ res.unplaced=items.map(function(i){return i.id;}); res.cost=1e6*items.length; return res; }
+  const idxOf={}; techs.forEach(function(t,j){idxOf[t.id]=j;});
+  const isPin=function(i){return i.pinTech&&idxOf[i.pinTech]!=null;};
+  const pinned=items.filter(isPin), free=items.filter(function(i){return !isPin(i);});
+  const byId={}; items.forEach(function(i){byId[i.id]=i;});
+  let cent=techs.map(function(t){return {lat:t.lat,lng:t.lng};});
+  function pass(){
+    const load=new Array(T).fill(0), asg=new Map(), un=[];
+    pinned.forEach(function(p){const j=idxOf[p.pinTech]; asg.set(p.id,j); load[j]+=p.w;});
+    const arr=free.map(function(p){
+      const ds=cent.map(function(c,j){return {j:j,d:dist(p,c)};}).sort(function(a,b){return a.d-b.d;});
+      return {p:p,ds:ds,reg:(ds[1]?ds[1].d:1e6)-ds[0].d};
+    }).sort(function(a,b){return b.reg-a.reg;});
+    arr.forEach(function(o){
+      let pick=-1;
+      for(let z=0;z<o.ds.length;z++){ if(load[o.ds[z].j]+o.p.w<=cap){pick=o.ds[z].j;break;} }
+      if(pick<0){un.push(o.p.id);return;}
+      asg.set(o.p.id,pick); load[pick]+=o.p.w;
+    });
+    return {asg:asg,load:load,un:un};
+  }
+  function centers(asg){
+    const g=techs.map(function(){return [];});
+    asg.forEach(function(j,id){g[j].push(byId[id]);});
+    return techs.map(function(t,j){return blendCenter(t,g[j]);});
+  }
+  let r=pass();
+  const iters=quick?6:20;
+  for(let it=0;it<iters;it++){
+    const nc=centers(r.asg); let moved=false;
+    nc.forEach(function(c,j){ if(dist(c,cent[j])>1e-6) moved=true; });
+    cent=nc; if(!moved) break; r=pass();
+  }
+  if(!quick){
+    for(let pz=0;pz<10;pz++){
+      const ce=centers(r.asg); let changed=false;
+      free.forEach(function(p){
+        if(!r.asg.has(p.id)) return;
+        const a=r.asg.get(p.id); let best=a, bd=dist(p,ce[a]);
+        for(let b=0;b<T;b++){
+          if(b===a||r.load[b]+p.w>cap) continue;
+          const d=dist(p,ce[b]); if(d<bd-1e-6){bd=d;best=b;}
+        }
+        if(best!==a){r.asg.set(p.id,best);r.load[a]-=p.w;r.load[best]+=p.w;changed=true;}
+      });
+      const placed=free.filter(function(p){return r.asg.has(p.id);});
+      for(let i=0;i<placed.length;i++) for(let j=i+1;j<placed.length;j++){
+        const p=placed[i], q=placed[j], a=r.asg.get(p.id), b=r.asg.get(q.id);
+        if(a===b) continue;
+        if(r.load[a]-p.w+q.w>cap||r.load[b]-q.w+p.w>cap) continue;
+        if(dist(p,ce[b])+dist(q,ce[a])<dist(p,ce[a])+dist(q,ce[b])-1e-6){
+          r.asg.set(p.id,b); r.asg.set(q.id,a); r.load[a]+=q.w-p.w; r.load[b]+=p.w-q.w; changed=true;
+        }
+      }
+      r.un=r.un.filter(function(id){
+        const p=byId[id]; let bj=-1,bd=Infinity;
+        for(let b=0;b<T;b++){ if(r.load[b]+p.w>cap) continue; const d=dist(p,ce[b]); if(d<bd){bd=d;bj=b;} }
+        if(bj<0) return true;
+        r.asg.set(id,bj); r.load[bj]+=p.w; changed=true; return false;
+      });
+      if(!changed) break;
+    }
+  }
+  const fc=centers(r.asg); let cost=0;
+  r.asg.forEach(function(j,id){cost+=dist(byId[id],fc[j]);});
+  cost+=r.un.length*1000;
+  r.asg.forEach(function(j,id){res.asg.set(id,techs[j].id);});
+  res.unplaced=r.un; res.cost=cost;
+  return res;
+}
+
+// Pilih teknisi sesedikit mungkin yang masih cukup menampung semua alamat.
+function eliminate(items,techs,cap){
+  const W=items.reduce(function(s,i){return s+i.w;},0);
+  const kMin=Math.max(1,Math.ceil(W/cap));
+  const pinIds={}; items.forEach(function(i){ if(i.pinTech) pinIds[i.pinTech]=1; });
+  let cur=techs.slice();
+  while(cur.length>kMin){
+    let bi=-1,bc=Infinity;
+    cur.forEach(function(t,i){
+      if(pinIds[t.id]) return;
+      const sub=cur.filter(function(_,j){return j!==i;});
+      const r=assignAll(items,sub,cap,true);
+      if(!r.unplaced.length&&r.cost<bc){bc=r.cost;bi=i;}
+    });
+    if(bi<0) break;
+    cur.splice(bi,1);
+  }
+  return cur;
+}
+
+// rows: baris customer (w, pinTech, lat, lng, key). techs: teknisi yang hadir dan punya koordinat.
+// Hasil: {assign:{key:techId}, unplaced:[key]}
+function autoAssign(rows,techs,cfg){
+  const cap=cfg.cap;
+  const geoRows=rows.filter(function(r){return r.lat!=null;});
+  const items=geoRows.map(function(r){return {id:r.key,lat:r.lat,lng:r.lng,w:r.w,pinTech:r.pinTech};});
+  const W=items.reduce(function(s,i){return s+i.w;},0);
+  const out={assign:{},unplaced:rows.filter(function(r){return r.lat==null;}).map(function(r){return r.key;})};
+  if(!items.length) return out;
+  if(!techs.length){ out.unplaced=out.unplaced.concat(items.map(function(i){return i.id;})); return out; }
+  let use=techs, effCap=cap;
+  if(cfg.mode==='hemat') use=eliminate(items,techs,cap);
+  else effCap=Math.min(cap,Math.ceil(W/techs.length)+1);
+  let r=assignAll(items,use,effCap,false);
+  if(r.unplaced.length&&effCap<cap) r=assignAll(items,use,cap,false);
+  r.asg.forEach(function(tid,key){out.assign[key]=tid;});
+  out.unplaced=out.unplaced.concat(r.unplaced);
+  return out;
+}
+
+// Tambahkan alamat baru / alamat yatim ke teknisi terdekat yang masih punya slot.
+function placeJobs(jobs,techs,cap,assign,rowByKey){
+  const out={}; if(!techs.length||!jobs.length) return out;
+  const load={},mem={};
+  techs.forEach(function(t){load[t.id]=0;mem[t.id]=[];});
+  Object.keys(assign).forEach(function(k){
+    const t=assign[k], r=rowByKey[k];
+    if(load[t]!=null&&r){load[t]+=r.w;mem[t].push(r);}
+  });
+  const cent={}; techs.forEach(function(t){cent[t.id]=blendCenter(t,mem[t.id]);});
+  const arr=jobs.map(function(j){
+    const ds=techs.map(function(t){return {id:t.id,d:dist(j,cent[t.id])};}).sort(function(a,b){return a.d-b.d;});
+    const pt=(j.pinTech&&load[j.pinTech]!=null)?j.pinTech:'';
+    return {j:j,pt:pt,ds:ds,reg:(ds[1]?ds[1].d:1e6)-ds[0].d};
+  }).sort(function(a,b){return b.reg-a.reg;});
+  arr.forEach(function(o){
+    let pick=o.pt;
+    if(!pick){ for(let z=0;z<o.ds.length;z++){ if(load[o.ds[z].id]+o.j.w<=cap){pick=o.ds[z].id;break;} } }
+    if(pick){out[o.j.key]=pick; load[pick]+=o.j.w;}
+  });
+  return out;
+}
+/*LOGIC_END*/
+
+// ---------- UI ----------
+const $=function(id){return document.getElementById(id);};
+const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+function pad(n){return String(n).padStart(2,'0');}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function fmtDate(s){const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+
+const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:'};
+const S={tab:'tugas',cfg:Object.assign({},REPO_CONFIG),local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
+  date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null};
+
+function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+function loadCfg(){ const s=lsGet(LS.cfg,null); if(s) Object.assign(S.cfg,s); }
+function saveCfg(){ lsSet(LS.cfg,S.cfg); }
+function applyHash(){
+  const h=(location.hash||'').replace(/^#/,''); if(!h) return;
+  let p; try{p=new URLSearchParams(h);}catch(e){return;}
+  let ch=false;
+  if(p.get('cust')){S.cfg.cust=p.get('cust');ch=true;}
+  if(p.get('tek')){S.cfg.tek=p.get('tek');ch=true;}
+  if(p.get('cap')){S.cfg.cap=Math.max(1,Math.min(20,parseInt(p.get('cap'),10)||8));ch=true;}
+  if(p.get('mode')==='hemat'||p.get('mode')==='ratakan'){S.cfg.mode=p.get('mode');ch=true;}
+  if(p.get('int')!=null&&p.get('int')!==''){S.cfg.interval=parseInt(p.get('int'),10)||0;ch=true;}
+  if(p.get('toren')!=null){S.cfg.toren=p.get('toren')==='1';ch=true;}
+  if(ch){ saveCfg(); try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} }
+}
+function shareLink(){
+  const p=new URLSearchParams();
+  if(S.cfg.cust) p.set('cust',S.cfg.cust);
+  if(S.cfg.tek) p.set('tek',S.cfg.tek);
+  p.set('cap',S.cfg.cap); p.set('mode',S.cfg.mode); p.set('int',S.cfg.interval); p.set('toren',S.cfg.toren?'1':'0');
+  return location.origin+location.pathname+'#'+p.toString();
+}
+
+function msg(t,err){const m=$('status'); m.textContent=t||''; m.className=err?'err':'';}
+let toastT;
+function toast(t){const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){el.classList.remove('on');},2600);}
+
+// ----- Teknisi -----
+function techs(){
+  if(!S.techsC){ S.techsC=S.sheetRoster.concat(S.local).map(function(t,i){const g=withGeo(t); g.color=COLORS[i%COLORS.length]; return g;}); }
+  return S.techsC;
+}
+function invalidateTechs(){S.techsC=null;}
+function techById(id){return techs().find(function(t){return t.id===id;});}
+function isOff(id){return S.day.off.indexOf(id)>=0;}
+function availTechs(){return techs().filter(function(t){return !isOff(t.id);});}
+function eligTechs(){return availTechs().filter(function(t){return t.lat!=null;});}
+function saveLocalRoster(){lsSet(LS.roster,S.local);}
+
+// ----- Hari -----
+function loadDay(d){const v=lsGet(LS.day+d,null); return (v&&v.assign)?{assign:v.assign,off:v.off||[],init:!!v.init}:{assign:{},off:[],init:false};}
+function saveDay(){lsSet(LS.day+S.date,S.day);}
+function pushUndo(label){S.undo={label:label,day:JSON.parse(JSON.stringify(S.day)),date:S.date};}
+
+function prepRows(){
+  const cap=S.cfg.cap, T=techs();
+  const rows=S.rowsAll.filter(function(r){return !S.hasDate||!r.date||r.date===S.date;});
+  rows.forEach(function(r){
+    r.w=S.cfg.toren?Math.min(cap,Math.max(1,r.toren||1)):1;
+    const t=matchTech(r.pin,T); r.pinTech=t?t.id:''; r.pinMiss=!!(r.pin&&!t);
+  });
+  return rows;
+}
+
+// Sinkronkan penugasan dengan data terbaru. Kembalikan jumlah alamat baru.
+function sync(){
+  S.day=loadDay(S.date);
+  const rows=prepRows(); S.dayRows=rows;
+  const byKey={}; rows.forEach(function(r){byKey[r.key]=r;});
+  const avail=availTechs(), ids={}; avail.forEach(function(t){ids[t.id]=1;});
+  const elig=eligTechs(), A=S.day.assign;
+  Object.keys(A).forEach(function(k){ if(!byKey[k]||!ids[A[k]]) delete A[k]; });
+  if(!S.day.init){
+    if(rows.length&&elig.length){ Object.assign(A,autoAssign(rows,elig,S.cfg).assign); S.day.init=true; }
+  } else {
+    const toPlace=rows.filter(function(r){return !A[r.key]&&r.lat!=null;});
+    if(toPlace.length&&elig.length) Object.assign(A,placeJobs(toPlace,elig,S.cfg.cap,A,byKey));
+  }
+  let added=0;
+  if(S.prevKeys&&S.prevDate===S.date){ rows.forEach(function(r){ if(!S.prevKeys.has(r.key)){S.fresh.add(r.key);added++;} }); }
+  else S.fresh=new Set();
+  S.prevKeys=new Set(rows.map(function(r){return r.key;})); S.prevDate=S.date;
+  saveDay();
+  return added;
+}
+
+// ----- Ambil data -----
+function csvUrl(u){
+  u=String(u||'').trim();
+  if(/docs\.google\.com\/spreadsheets\/d\/e\//.test(u)){
+    u=u.replace('/pubhtml','/pub');
+    return /[?&]output=/.test(u)?u:(u+(u.indexOf('?')>=0?'&':'?')+'output=csv');
+  }
+  const m=u.match(/docs\.google\.com\/spreadsheets\/d\/([^/?#]+)/);
+  if(m){ const g=u.match(/[#&?]gid=(\d+)/); return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(g?'&gid='+g[1]:''); }
+  return u;
+}
+function fetchCsv(url){
+  return fetch(csvUrl(url),{cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error('Spreadsheet menjawab '+r.status);
+    return r.text();
+  }).then(function(t){
+    if(/^\s*<(!doctype|html)/i.test(t)) throw new Error('Spreadsheet belum dipublikasikan atau belum dibagikan');
+    return t;
+  });
+}
+function refresh(byUser){
+  if(S.busy) return Promise.resolve();
+  if(!S.cfg.cust&&!S.cfg.tek){
+    if(byUser) msg(S.rowsAll.length?'Data dari tempel manual. Hubungkan spreadsheet di tab Pengaturan agar otomatis.':'Belum ada sumber data. Buka tab Pengaturan.',false);
+    sync(); renderAll(); return Promise.resolve();
+  }
+  S.busy=true; msg('Memperbarui data...');
+  const jobs=[];
+  if(S.cfg.tek) jobs.push(fetchCsv(S.cfg.tek).then(function(t){S.sheetRoster=mapTechRows(parseDelim(t,','));invalidateTechs();}));
+  if(S.cfg.cust) jobs.push(fetchCsv(S.cfg.cust).then(function(t){const m=mapRows(parseDelim(t,','));S.rowsAll=m.rows;S.hasDate=m.hasDate;S.source='sheet';}));
+  return Promise.all(jobs).then(function(){
+    S.lastFetch=new Date(); S.error='';
+  }).catch(function(e){
+    S.error='Gagal mengambil data: '+(e&&e.message?e.message:'periksa koneksi')+'. Pastikan link sudah dipublikasikan sebagai CSV.';
+  }).then(function(){
+    S.busy=false;
+    const added=sync(); renderAll(); showStatus();
+    if(added>0) toast(added+' alamat baru ditambahkan');
+  });
+}
+function showStatus(){
+  if(S.error){ msg(S.error,true); return; }
+  const parts=[];
+  if(S.lastFetch) parts.push('Diperbarui pukul '+fmtTime(S.lastFetch));
+  else if(S.source==='manual') parts.push('Data dari tempel manual');
+  if(S.cfg.cust&&S.rowsAll.length&&!S.hasDate) parts.push('Sheet tanpa kolom Tanggal, semua baris dipakai');
+  if(S.hasDate&&!S.dayRows.length&&S.rowsAll.length) parts.push('Tidak ada alamat pada tanggal ini, ada '+S.rowsAll.length+' alamat di tanggal lain');
+  msg(parts.join('. '));
+}
+function restartTimer(){
+  if(S.timer){clearInterval(S.timer);S.timer=null;}
+  const m=parseInt(S.cfg.interval,10)||0;
+  if(m>0&&(S.cfg.cust||S.cfg.tek)) S.timer=setInterval(function(){ if(!document.hidden) refresh(false); },m*60000);
+}
+
+// ----- Render: Penugasan -----
+function membersOf(id){return S.dayRows.filter(function(r){return S.day.assign[r.key]===id;});}
+function loadOf(list){return list.reduce(function(s,m){return s+m.w;},0);}
+function mapsQuery(m){
+  if(m.level==='koord') return m.lat.toFixed(5)+','+m.lng.toFixed(5);
+  const a=/https?:/i.test(m.alamat||'')?'':m.alamat;
+  return [a,m.kec,m.kota].filter(Boolean).join(', ');
+}
+function homeQuery(t){
+  if(t.level==='koord') return t.lat.toFixed(5)+','+t.lng.toFixed(5);
+  return [t.alamat,t.kec,t.kota].filter(Boolean).join(', ');
+}
+function moveOptions(sel){
+  const cap=S.cfg.cap;
+  return availTechs().map(function(t){
+    const l=loadOf(membersOf(t.id));
+    return '<option value="'+esc(t.id)+'"'+(t.id===sel?' selected':'')+'>'+esc(t.nama)+' ('+l+'/'+cap+')</option>';
+  }).join('');
+}
+function stopHTML(m,i,tid){
+  let chips='';
+  if(m.jamText) chips+='<span class="chip time">'+esc(m.jamText)+'</span>';
+  if(m.toren>1) chips+='<span class="chip">'+m.toren+' toren</span>';
+  if(m.level==='kota') chips+='<span class="chip warn">lokasi kasar</span>';
+  if(m.pinMiss) chips+='<span class="chip warn">teknisi '+esc(m.pin)+' tidak ada di daftar</span>';
+  if(S.fresh.has(m.key)) chips+='<span class="chip new">baru</span>';
+  const meta=[m.kec,m.kota].filter(Boolean).join(', ');
+  return '<li class="stop"><span class="seq">'+(tid?(i+1):'!')+'</span><div>'
+    +'<div><b>'+esc(m.nama||'Tanpa nama')+'</b>'+chips+'</div>'
+    +'<div class="addr">'+esc(m.alamat)+'</div>'
+    +'<div class="meta">'+esc(meta)+(m.telp?' &nbsp;|&nbsp; '+esc(m.telp):'')+'</div>'
+    +(m.rest?'<div class="rest">'+esc(m.rest)+'</div>':'')
+    +'</div><select class="mv" data-key="'+esc(m.key)+'" aria-label="Pindahkan '+esc(m.nama)+' ke teknisi lain">'
+    +(tid?'':'<option value="">Pilih teknisi</option>')+moveOptions(tid)+'</select></li>';
+}
+function cardHTML(t){
+  const mem=membersOf(t.id), ordered=orderRoute(mem,t);
+  const load=loadOf(mem), over=load>S.cfg.cap;
+  const span=maxPair(mem);
+  const hours={}; mem.forEach(function(m){const h=hourKey(m); if(h!=null) hours[h]=(hours[h]||0)+1;});
+  const clash=Object.keys(hours).filter(function(h){return hours[h]>1;});
+  const far=mem.reduce(function(mx,m){return (t.lat!=null&&m.lat!=null)?Math.max(mx,dist(t,m)):mx;},0);
+  const warns=[];
+  if(over) warns.push('Melebihi batas '+S.cfg.cap+'.');
+  if(span>25) warns.push('Jarak antar alamat sampai '+Math.round(span)+' km, cek lagi pembagiannya.');
+  if(clash.length) warns.push('Ada lebih dari satu alamat di jam '+clash.map(function(h){return (+h>12?(+h-12):h);}).join(', ')+' (bentrok jam).');
+  const home=[t.kec,t.kota].filter(Boolean).join(', ');
+  let h='<section class="card tech" style="--tc:'+t.color+'">'
+    +'<div class="thead"><h3 class="tname">'+esc(t.nama)+'</h3><span class="badge'+(over?' over':'')+'">'+load+'/'+S.cfg.cap+'</span></div>'
+    +'<p class="tmeta">Rumah di '+esc(home||'-')+(mem.length&&far?', alamat terjauh sekitar '+Math.round(far)+' km dari rumah':'')+'</p>'
+    +warns.map(function(w){return '<p class="notice">'+esc(w)+'</p>';}).join('');
+  if(mem.length){
+    h+='<ol class="stops">'+ordered.map(function(m,i){return stopHTML(m,i,t.id);}).join('')+'</ol>';
+  } else h+='<p class="empty">Belum ada alamat untuk teknisi ini.</p>';
+  h+='<div class="tfoot">';
+  if(mem.length){
+    const url='https://www.google.com/maps/dir/'+[homeQuery(t)].concat(ordered.map(mapsQuery)).map(encodeURIComponent).join('/');
+    h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" type="button">Salin pesan untuk teknisi</button>'
+      +'<a class="btn ghost small" href="'+url+'" target="_blank" rel="noopener">Rute di Maps</a>';
+  }
+  h+='<button class="btn ghost small" data-act="off" data-tid="'+esc(t.id)+'" type="button">Berhalangan</button></div></section>';
+  return h;
+}
+function renderTugas(){
+  const out=$('out'), rows=S.dayRows, T=techs(), avail=availTechs();
+  const A=S.day.assign, off=T.filter(function(t){return isOff(t.id);});
+  const unassigned=rows.filter(function(r){return !A[r.key];});
+  let h='';
+  if(S.undo&&S.undo.date===S.date) h+='<div class="undo"><span>'+esc(S.undo.label)+'</span><button class="btn ghost small" data-act="undo" type="button">Urungkan</button></div>';
+  if(!T.length){
+    h+='<div class="card"><h2>Belum ada teknisi</h2><p class="hint">Tambahkan teknisi dan alamat domisilinya di tab Teknisi, atau hubungkan spreadsheet teknisi di tab Pengaturan.</p></div>';
+  }
+  if(!rows.length){
+    h+='<div class="card"><h2>Belum ada alamat customer</h2><p class="hint">Hubungkan spreadsheet customer di tab Pengaturan. Alamat yang diinput ke spreadsheet akan muncul di sini setelah data diperbarui.</p></div>';
+    out.innerHTML=h; return;
+  }
+  const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
+  h+='<div class="card"><h2>'+rows.length+' alamat, '+avail.length+' teknisi hadir</h2>'
+    +'<p class="hint">'+esc(fmtDate(S.date))+'. Maksimal '+S.cfg.cap+(S.cfg.toren?' beban':' alamat')+' per teknisi.'+(approx?' Jarak dihitung dari titik tengah kecamatan, jadi berupa perkiraan.':'')+'</p>'
+    +'<div class="row"><button class="btn ghost small" data-act="recap" type="button">Salin rekap semua teknisi</button>'
+    +'<button class="btn ghost small" data-act="tsv" type="button">Salin untuk spreadsheet</button>'
+    +'<button class="btn '+(S.armed==='reset'?'danger':'ghost')+' small" data-act="reset" type="button">'+(S.armed==='reset'?'Yakin? Semua perubahan manual hilang':'Kelompokkan ulang semua')+'</button></div></div>';
+  const noGeo=avail.filter(function(t){return t.lat==null;});
+  if(noGeo.length) h+='<p class="notice">Domisili '+esc(noGeo.map(function(t){return t.nama;}).join(', '))+' belum terbaca (kecamatan tidak dikenali), jadi tidak ikut pembagian otomatis. Perbaiki di tab Teknisi atau pilih manual.</p>';
+  if(unassigned.length){
+    const w=unassigned.reduce(function(s,r){return s+r.w;},0), gap=Math.ceil(w/S.cfg.cap);
+    const capIssue=unassigned.some(function(r){return r.lat!=null;});
+    h+='<p class="notice">'+unassigned.length+' alamat belum dapat teknisi.'+(capIssue?' Slot penuh, butuh sekitar '+gap+' teknisi lagi atau naikkan batas per teknisi di Pengaturan.':'')+'</p>';
+  }
+  h+='<div class="mapbox"><div id="map"></div><div class="info" id="info">Ketuk sebuah titik untuk melihat detail. Kotak kecil adalah rumah teknisi.</div></div>';
+  avail.forEach(function(t){h+=cardHTML(t);});
+  if(unassigned.length){
+    h+='<section class="card" style="--tc:#999"><h2>Belum dapat teknisi ('+unassigned.length+')</h2><p class="hint">Pilih teknisinya secara manual.</p><ol class="stops">'
+      +unassigned.map(function(m,i){return stopHTML(m,i,'');}).join('')+'</ol></section>';
+  }
+  if(off.length){
+    h+='<section class="card"><h2>Berhalangan hari ini</h2>'
+      +off.map(function(t){return '<div class="bar" style="justify-content:space-between"><span><b>'+esc(t.nama)+'</b></span><button class="btn ghost small" data-act="on" data-tid="'+esc(t.id)+'" type="button">Masuk lagi</button></div>';}).join('')
+      +'<p class="hint">Alamat yang tadinya dipegang teknisi ini sudah dipindah otomatis ke teknisi lain.</p></section>';
+  }
+  out.innerHTML=h;
+  renderMap();
+}
+
+function hull(pts){
+  if(pts.length<3) return pts.slice();
+  const p=pts.slice().sort(function(a,b){return a.x-b.x||a.y-b.y;});
+  const cr=function(o,a,b){return (a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);};
+  const lo=[]; p.forEach(function(q){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q);});
+  const up=[]; p.slice().reverse().forEach(function(q){while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q);});
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+function renderMap(){
+  const box=$('map'); if(!box) return;
+  const jobs=S.dayRows.filter(function(r){return r.lat!=null;});
+  const homes=availTechs().filter(function(t){return t.lat!=null;});
+  const pts=jobs.concat(homes);
+  if(!pts.length){box.innerHTML='';return;}
+  const W=360,H=250,pad2=24;
+  let minLa=Infinity,maxLa=-Infinity,minLn=Infinity,maxLn=-Infinity;
+  pts.forEach(function(p){minLa=Math.min(minLa,p.lat);maxLa=Math.max(maxLa,p.lat);minLn=Math.min(minLn,p.lng);maxLn=Math.max(maxLn,p.lng);});
+  const kx=Math.cos(((minLa+maxLa)/2)*Math.PI/180);
+  const xr=(maxLn-minLn)*kx, yr=maxLa-minLa;
+  let sc=1;
+  if(xr>1e-6||yr>1e-6) sc=Math.min(xr>1e-6?(W-2*pad2)/xr:Infinity,yr>1e-6?(H-2*pad2)/yr:Infinity);
+  const ox=(W-xr*sc)/2, oy=(H-yr*sc)/2;
+  const proj=function(p){return {x:ox+(p.lng-minLn)*kx*sc,y:oy+(maxLa-p.lat)*sc};};
+  const pos={}, groups={};
+  jobs.forEach(function(p){
+    const key=p.lat.toFixed(4)+'|'+p.lng.toFixed(4);
+    (groups[key]=groups[key]||[]).push(p); pos[p.key]=proj(p);
+  });
+  Object.keys(groups).forEach(function(k){
+    const g=groups[k]; if(g.length<2) return;
+    g.forEach(function(p,i){const a=2*Math.PI*i/g.length; pos[p.key].x+=Math.cos(a)*7; pos[p.key].y+=Math.sin(a)*7;});
+  });
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Peta sebaran alamat per teknisi">';
+  availTechs().forEach(function(t){
+    const mem=orderRoute(membersOf(t.id),t).filter(function(m){return pos[m.key];});
+    if(!mem.length) return;
+    const xy=mem.map(function(m){return pos[m.key];});
+    if(xy.length===1){
+      svg+='<circle cx="'+xy[0].x.toFixed(1)+'" cy="'+xy[0].y.toFixed(1)+'" r="11" fill="'+t.color+'" fill-opacity=".16"/>';
+    } else {
+      const hp=hull(xy).map(function(q){return q.x.toFixed(1)+','+q.y.toFixed(1);}).join(' ');
+      svg+='<polygon points="'+hp+'" fill="'+t.color+'" fill-opacity=".14" stroke="'+t.color+'" stroke-opacity=".14" stroke-width="16" stroke-linejoin="round"/>';
+      svg+='<polyline points="'+xy.map(function(q){return q.x.toFixed(1)+','+q.y.toFixed(1);}).join(' ')+'" fill="none" stroke="'+t.color+'" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="4 3"/>';
+    }
+  });
+  homes.forEach(function(t){
+    const q=proj(t);
+    svg+='<rect x="'+(q.x-5).toFixed(1)+'" y="'+(q.y-5).toFixed(1)+'" width="10" height="10" rx="2" fill="'+t.color+'" stroke="var(--surface)" stroke-width="2"><title>Rumah '+esc(t.nama)+'</title></rect>';
+  });
+  jobs.forEach(function(m){
+    const t=techById(S.day.assign[m.key]); const col=t?t.color:'#999';
+    svg+='<circle class="pt" data-key="'+esc(m.key)+'" cx="'+pos[m.key].x.toFixed(1)+'" cy="'+pos[m.key].y.toFixed(1)+'" r="6" fill="'+col+'" stroke="var(--surface)" stroke-width="2" style="cursor:pointer"><title>'+esc(m.nama)+'</title></circle>';
+  });
+  svg+='</svg><div class="legend">'+availTechs().map(function(t){return '<span style="--tc:'+t.color+'"><i></i>'+esc(t.nama)+' ('+membersOf(t.id).length+')</span>';}).join('')+'</div>';
+  box.innerHTML=svg;
+}
+
+// ----- Render: Teknisi -----
+function renderRoster(){
+  const T=techs(), list=$('tlist');
+  const hadir=T.filter(function(t){return !isOff(t.id);}).length;
+  $('tsum').textContent=T.length?('Teknisi ('+hadir+' hadir dari '+T.length+')'):'Teknisi';
+  if(!T.length){ list.innerHTML='<div class="card"><p class="empty">Belum ada teknisi. Tambahkan lewat formulir di bawah, impor dari spreadsheet, atau hubungkan link spreadsheet teknisi di Pengaturan.</p></div>'; return; }
+  list.innerHTML=T.map(function(t){
+    const off=isOff(t.id);
+    const loc=S.local.find(function(l){return l.id===t.id;});
+    const home=[t.alamat,t.kec,t.kota].filter(Boolean).join(', ');
+    const src=loc?(loc.contoh?'<span class="chip">contoh</span>':''):'<span class="chip">dari spreadsheet</span>';
+    return '<section class="card tk'+(off?' off':'')+'" style="--tc:'+t.color+'">'
+      +'<div class="thead"><h3 class="tname">'+esc(t.nama)+' '+src+'</h3><span class="pill'+(off?' off':'')+'">'+(off?'Berhalangan':'Hadir')+'</span></div>'
+      +'<div class="addr">'+esc(home||'Alamat domisili belum diisi')+'</div>'
+      +'<div class="meta">'+(t.telp?esc(t.telp):'')+(t.level==='none'?'<span class="chip warn">domisili belum terbaca</span>':(t.level==='kota'?'<span class="chip warn">lokasi kasar</span>':''))+'</div>'
+      +'<div class="tfoot"><button class="btn ghost small" data-act="toggle" data-tid="'+esc(t.id)+'" type="button">'+(off?'Tandai hadir':'Tandai berhalangan')+'</button>'
+      +(loc?'<button class="btn ghost small" data-act="edit" data-tid="'+esc(t.id)+'" type="button">Ubah</button>'
+        +'<button class="btn '+(S.armed==='del:'+t.id?'danger':'ghost')+' small" data-act="del" data-tid="'+esc(t.id)+'" type="button">'+(S.armed==='del:'+t.id?'Yakin hapus?':'Hapus')+'</button>':'')
+      +'</div></section>';
+  }).join('');
+}
+function fillKota(){
+  $('f-kota').innerHTML=KOTA_LIST.map(function(k){return '<option>'+esc(k)+'</option>';}).join('');
+  fillKecList();
+}
+function fillKecList(){
+  const reg=regionOf($('f-kota').value);
+  $('kec-list').innerHTML=(REGNAMES[reg]||[]).map(function(n){return '<option value="'+esc(n)+'">';}).join('');
+}
+function resetForm(){
+  ['f-id','f-nama','f-telp','f-alamat','f-kec','f-koord'].forEach(function(id){$(id).value='';});
+  $('f-err').hidden=true; $('tform-title').textContent='Tambah teknisi'; fillKecList();
+}
+function saveTechForm(){
+  const nama=$('f-nama').value.trim(), kec=$('f-kec').value.trim(), kota=$('f-kota').value, koord=$('f-koord').value.trim();
+  const err=$('f-err');
+  if(!nama){ err.textContent='Isi nama teknisi.'; err.hidden=false; return; }
+  const probe=withGeo({alamat:$('f-alamat').value,kec:kec,kota:kota,prov:'',koord:koord});
+  if(probe.level==='none'||(probe.level==='kota'&&kec&&!koord)){
+    err.textContent='Kecamatan “'+kec+'” tidak dikenali untuk '+kota+'. Pilih dari saran yang muncul, atau isi koordinat rumah.'; err.hidden=false; return;
+  }
+  err.hidden=true;
+  const id=$('f-id').value;
+  const rec={id:id||('l'+Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36)),nama:nama,telp:$('f-telp').value.trim(),alamat:$('f-alamat').value.trim(),kec:kec,kota:kota,prov:'',koord:koord};
+  const i=S.local.findIndex(function(t){return t.id===id;});
+  if(i>=0){ rec.contoh=S.local[i].contoh; S.local[i]=rec; } else S.local.push(rec);
+  saveLocalRoster(); invalidateTechs(); resetForm(); $('tform-box').open=false;
+  sync(); renderAll(); toast('Teknisi disimpan');
+}
+function editTech(id){
+  const t=S.local.find(function(x){return x.id===id;}); if(!t) return;
+  $('f-id').value=t.id; $('f-nama').value=t.nama; $('f-telp').value=t.telp||''; $('f-alamat').value=t.alamat||''; $('f-kota').value=t.kota||KOTA_LIST[0]; fillKecList(); $('f-kec').value=t.kec||''; $('f-koord').value=t.koord||'';
+  $('tform-title').textContent='Ubah teknisi'; $('tform-box').open=true; $('f-nama').focus();
+}
+function bulkImport(){
+  const txt=$('bulk').value.trim(); if(!txt){toast('Tempel data teknisi dulu');return;}
+  const list=mapTechRows(parseDelim(txt,detectDelim(txt)));
+  if(!list.length){toast('Tidak ada teknisi yang terbaca');return;}
+  list.forEach(function(t){
+    const i=S.local.findIndex(function(x){return norm(x.nama)===norm(t.nama);});
+    const rec={id:i>=0?S.local[i].id:('l'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36)),nama:t.nama,telp:t.telp,alamat:t.alamat,kec:t.kec,kota:t.kota,prov:t.prov,koord:t.koord};
+    if(i>=0) S.local[i]=rec; else S.local.push(rec);
+  });
+  saveLocalRoster(); invalidateTechs(); $('bulk').value=''; sync(); renderAll(); toast(list.length+' teknisi diimpor');
+}
+
+// ----- Aksi -----
+function toggleOff(id,goOff){
+  const t=techById(id); if(!t) return;
+  pushUndo(goOff?(t.nama+' ditandai berhalangan. Alamatnya dipindah ke teknisi lain.'):(t.nama+' ditandai hadir.'));
+  const cur=loadDay(S.date); cur.off=cur.off.filter(function(x){return x!==id;}); if(goOff) cur.off.push(id);
+  lsSet(LS.day+S.date,cur);
+  sync(); renderAll();
+  if(goOff){
+    const un=S.dayRows.filter(function(r){return !S.day.assign[r.key];}).length;
+    toast(un?('Sebagian alamat belum dapat teknisi ('+un+')'):'Alamat dipindahkan ke teknisi lain');
+  }
+}
+function moveJob(key,tid){
+  const r=S.dayRows.find(function(x){return x.key===key;}); const t=techById(tid); if(!r||!t) return;
+  pushUndo(r.nama+' dipindah ke '+t.nama+'.');
+  S.day.assign[key]=tid; saveDay(); renderAll();
+}
+function doUndo(){
+  if(!S.undo||S.undo.date!==S.date) return;
+  S.day=S.undo.day; saveDay(); S.undo=null;
+  sync(); renderAll();
+}
+function resetAll(){
+  pushUndo('Semua alamat dikelompokkan ulang.');
+  S.day.assign={}; S.day.init=false; saveDay(); sync(); renderAll(); toast('Dikelompokkan ulang');
+}
+
+function copyText(text,label){
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=text; ta.setAttribute('readonly',''); ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta); ta.select(); let ok=false; try{ok=document.execCommand('copy');}catch(e){}
+    document.body.removeChild(ta);
+    if(ok) toast(label+' tersalin'); else showManual(text);
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){toast(label+' tersalin');},fallback); }
+  else fallback();
+}
+function showManual(text){
+  let el=$('manual-copy');
+  if(!el){ el=document.createElement('div'); el.id='manual-copy'; el.className='card'; $('out').appendChild(el); }
+  el.innerHTML='<h2>Salin manual</h2><p class="hint">Browser menolak menyalin otomatis. Tekan lama teks di bawah, pilih semua, lalu salin.</p><textarea readonly rows="8"></textarea>';
+  const ta=el.querySelector('textarea'); ta.value=text; ta.focus(); ta.select();
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function waText(t){
+  const mem=orderRoute(membersOf(t.id),t);
+  let s='Jadwal '+t.nama+', '+fmtDate(S.date)+' ('+mem.length+' alamat)\n';
+  mem.forEach(function(m,i){
+    s+='\n'+(i+1)+'. '+(m.nama||'Tanpa nama')+(m.telp?' ('+m.telp+')':'')+'\n   '+m.alamat+(m.kec?', '+m.kec:'')+(m.kota?', '+m.kota:'')+'\n';
+    const extra=[m.jamText,m.toren>1?m.toren+' toren':'',m.rest].filter(Boolean).join('. ');
+    if(extra) s+='   Catatan: '+extra+'\n';
+  });
+  return s.trim();
+}
+function recapText(){
+  let s='Rekap pembagian teknisi, '+fmtDate(S.date)+'\n';
+  availTechs().forEach(function(t){
+    const mem=orderRoute(membersOf(t.id),t);
+    s+='\n'+t.nama+' ('+mem.length+' alamat)\n';
+    mem.forEach(function(m,i){s+=(i+1)+'. '+(m.nama||'Tanpa nama')+(m.jamText?' ['+m.jamText+']':'')+', '+(m.kec||m.alamat)+'\n';});
+  });
+  const un=S.dayRows.filter(function(r){return !S.day.assign[r.key];});
+  if(un.length) s+='\nBelum dapat teknisi ('+un.length+')\n'+un.map(function(m){return '- '+(m.nama||'Tanpa nama')+', '+(m.kec||m.alamat);}).join('\n')+'\n';
+  return s.trim();
+}
+function tsvText(){
+  const lines=[['Nama','Telepon','Alamat','Kecamatan','Kota','Provinsi','Catatan','Teknisi','Urutan'].join('\t')];
+  const clean=function(v){return String(v==null?'':v).replace(/[\t\r\n]+/g,' ');};
+  availTechs().forEach(function(t){
+    orderRoute(membersOf(t.id),t).forEach(function(m,i){lines.push([m.nama,m.telp,m.alamat,m.kec,m.kota,m.prov,m.note,t.nama,i+1].map(clean).join('\t'));});
+  });
+  S.dayRows.filter(function(r){return !S.day.assign[r.key];}).forEach(function(m){lines.push([m.nama,m.telp,m.alamat,m.kec,m.kota,m.prov,m.note,'',''].map(clean).join('\t'));});
+  return lines.join('\n');
+}
+
+// ----- Data contoh -----
+const SAMPLE=[
+ ['Darwis','08xx-xxxx-xxxx','Central karawaci blok a2/24','Curug','Kab. Tangerang','Banten',''],
+ ['Tri','08xx-xxxx-xxxx','Cluster britanias','Pasar Kemis','Kab. Tangerang','Banten',''],
+ ['Andri','08xx-xxxx-xxxx','Permata tangerang blok fa13 no 22','Pasar Kemis','Kab. Tangerang','Banten','Jam 10'],
+ ['Edy Sulistyo','08xx-xxxx-xxxx','Jl maulana hasanudin puri permata d2/32','Cipondoh','Kota Tangerang','Banten','Disc 10%'],
+ ['Anggun','08xx-xxxx-xxxx','Komplek kalibata indah jl mangga blok n2 rawajati','Pancoran','Kota Jakarta Selatan','DKI Jakarta','Jam 08'],
+ ['Putri','08xx-xxxx-xxxx','Ulujami raya Gg Pancoran no 28 rt/rw 07/01','Pesanggrahan','Kota Jakarta Selatan','DKI Jakarta',''],
+ ['Bakry','08xx-xxxx-xxxx','Perumahan Griya Ihsani 5 blok C6, jln Pepaya Raya 170','Jagakarsa','Kota Jakarta Selatan','DKI Jakarta','Jam 09. Teknisi hendi'],
+ ['David','08xx-xxxx-xxxx','Perumahan palm village jl sempu raya','Beji','Kota Depok','Jawa Barat','Jam 03'],
+ ['Dedy','08xx-xxxx-xxxx','Jl bakti abri no 98','Cimanggis','Kota Depok','Jawa Barat','Disc 10%'],
+ ['Agus','08xx-xxxx-xxxx','Jl situ pitara siwagandu rt/rw 1/7 no 11','Pancoranmas','Kota Depok','Jawa Barat','Disc 10%'],
+ ['Haeri','08xx-xxxx-xxxx','Maps: https://maps.app.goo.gl/7BWiDS57Hdu5mGEU6?g_st=ac','Sukaraja','Kabupaten Bogor','Jawa Barat','2 toren.'],
+ ['Dimas Teguh P','08xx-xxxx-xxxx','Jl anyelir barat 1 blok J4 no 7-8 perum pondok hijau permai','Bekasi Timur','Kota Bekasi','Jawa Barat',''],
+ ['Kristina','08xx-xxxx-xxxx','Mutiara gading timur jl candikian 10 blok c19 no 3 rt/rw 04/24','Mustika Jaya','Kota Bekasi','Jawa Barat',''],
+ ['Agus Suryana','08xx-xxxx-xxxx','Perum purigading blok L7 No 12A rt/rw 04/12 jatimelati','Pondok Melati','Kota Bekasi','Jawa Barat',''],
+ ['Mizwar','08xx-xxxx-xxxx','Perumahan bekasi timur regensi 7 cluster fallopia blok f7 no 7','Setu','Kab. Bekasi','Jawa Barat','Jam 08. 2 Toren']
+];
+const SAMPLE_TECH=[
+ ['Hendi','08xx-xxxx-xxxx','Alamat contoh','Jagakarsa','Kota Jakarta Selatan'],
+ ['Rudi','08xx-xxxx-xxxx','Alamat contoh','Pasar Kemis','Kab. Tangerang'],
+ ['Bayu','08xx-xxxx-xxxx','Alamat contoh','Bekasi Timur','Kota Bekasi'],
+ ['Tono','08xx-xxxx-xxxx','Alamat contoh','Cimanggis','Kota Depok']
+];
+function loadSample(){
+  S.local=S.local.filter(function(t){return !t.contoh;});
+  SAMPLE_TECH.forEach(function(r,i){S.local.push({id:'contoh'+i,contoh:true,nama:r[0],telp:r[1],alamat:r[2],kec:r[3],kota:r[4],prov:'',koord:''});});
+  saveLocalRoster(); invalidateTechs();
+  const m=mapRows(SAMPLE);
+  S.rowsAll=m.rows; S.hasDate=false; S.source='manual'; S.lastFetch=null; S.error='';
+  const d=loadDay(S.date); d.assign={}; d.init=false; d.off=[]; lsSet(LS.day+S.date,d);
+  sync(); renderAll(); showStatus(); setTab('tugas');
+}
+function clearSample(){
+  S.local=S.local.filter(function(t){return !t.contoh;}); saveLocalRoster(); invalidateTechs();
+  if(S.source==='manual'){S.rowsAll=[];S.source='';}
+  sync(); renderAll(); showStatus(); toast('Data contoh dihapus');
+}
+function useManual(){
+  const txt=$('manual').value.trim(); if(!txt){toast('Tempel data customer dulu');return;}
+  const m=mapRows(parseDelim(txt,detectDelim(txt)));
+  if(!m.rows.length){toast('Tidak ada baris alamat yang terbaca');return;}
+  S.rowsAll=m.rows; S.hasDate=m.hasDate; S.source='manual'; S.lastFetch=null; S.error='';
+  sync(); renderAll(); showStatus(); setTab('tugas');
+}
+
+// ----- Tab dan pengaturan -----
+function setTab(name){
+  S.tab=name;
+  ['tugas','teknisi','atur'].forEach(function(n){
+    $('p-'+n).hidden=(n!==name);
+    $('tab-'+n).setAttribute('aria-selected',n===name?'true':'false');
+  });
+}
+function fillSettings(){
+  $('s-cust').value=S.cfg.cust||''; $('s-tek').value=S.cfg.tek||''; $('s-cap').value=S.cfg.cap;
+  $('s-mode').value=S.cfg.mode; $('s-int').value=String(S.cfg.interval); $('s-toren').checked=!!S.cfg.toren;
+}
+function saveSettings(){
+  S.cfg.cust=$('s-cust').value.trim(); S.cfg.tek=$('s-tek').value.trim();
+  S.cfg.cap=Math.max(1,Math.min(20,parseInt($('s-cap').value,10)||8)); $('s-cap').value=S.cfg.cap;
+  S.cfg.mode=$('s-mode').value; S.cfg.interval=parseInt($('s-int').value,10)||0; S.cfg.toren=$('s-toren').checked;
+  saveCfg(); restartTimer();
+  if(!S.cfg.tek&&S.sheetRoster.length){S.sheetRoster=[];invalidateTechs();}
+  refresh(true).then(function(){toast('Pengaturan disimpan');});
+  setTab('tugas');
+}
+function renderAll(){ renderTugas(); renderRoster(); }
+
+// ----- Events -----
+document.querySelector('.tabs').addEventListener('click',function(e){
+  const b=e.target.closest('button[data-tab]'); if(b) setTab(b.getAttribute('data-tab'));
+});
+$('date').addEventListener('change',function(){
+  S.date=$('date').value||todayStr(); S.armed=''; sync(); renderAll(); showStatus();
+});
+$('refresh').addEventListener('click',function(){refresh(true);});
+$('out').addEventListener('change',function(e){
+  const el=e.target;
+  if(el.classList&&el.classList.contains('mv')){ const v=el.value; if(v) moveJob(el.getAttribute('data-key'),v); }
+});
+$('out').addEventListener('click',function(e){
+  const pt=e.target.closest&&e.target.closest('circle.pt');
+  if(pt){
+    const m=S.dayRows.find(function(r){return r.key===pt.getAttribute('data-key');}); const t=m&&techById(S.day.assign[m.key]);
+    if(m) $('info').textContent=(m.nama||'Tanpa nama')+', '+[m.kec,m.kota].filter(Boolean).join(', ')+(t?' | '+t.nama:'');
+    return;
+  }
+  const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
+  const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
+  if(act==='tsv') copyText(tsvText(),'Hasil');
+  else if(act==='recap') copyText(recapText(),'Rekap');
+  else if(act==='wa'){ const t=techById(tid); if(t) copyText(waText(t),'Pesan untuk '+t.nama); }
+  else if(act==='off') toggleOff(tid,true);
+  else if(act==='on') toggleOff(tid,false);
+  else if(act==='undo') doUndo();
+  else if(act==='reset'){ if(S.armed==='reset'){S.armed='';resetAll();} else {S.armed='reset';renderTugas();setTimeout(function(){if(S.armed==='reset'){S.armed='';renderTugas();}},4000);} }
+});
+$('tlist').addEventListener('click',function(e){
+  const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
+  const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
+  if(act==='toggle') toggleOff(tid,!isOff(tid));
+  else if(act==='edit') editTech(tid);
+  else if(act==='del'){
+    if(S.armed==='del:'+tid){
+      S.armed=''; S.local=S.local.filter(function(t){return t.id!==tid;}); saveLocalRoster(); invalidateTechs(); sync(); renderAll(); toast('Teknisi dihapus');
+    } else { S.armed='del:'+tid; renderRoster(); setTimeout(function(){ if(S.armed==='del:'+tid){S.armed='';renderRoster();} },4000); }
+  }
+});
+$('f-kota').addEventListener('change',fillKecList);
+$('f-save').addEventListener('click',saveTechForm);
+$('f-cancel').addEventListener('click',function(){resetForm();$('tform-box').open=false;});
+$('bulk-go').addEventListener('click',bulkImport);
+$('s-save').addEventListener('click',saveSettings);
+$('s-share').addEventListener('click',function(){
+  if(!S.cfg.cust&&!S.cfg.tek){toast('Isi dan simpan link spreadsheet dulu');return;}
+  copyText(shareLink(),'Link korlap');
+});
+$('m-go').addEventListener('click',useManual);
+$('m-sample').addEventListener('click',loadSample);
+$('m-clear').addEventListener('click',clearSample);
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden&&(S.cfg.cust||S.cfg.tek)&&(!S.lastFetch||Date.now()-S.lastFetch.getTime()>60000)) refresh(false);
+});
+
+// ----- Mulai -----
+loadCfg(); applyHash();
+S.local=lsGet(LS.roster,[]);
+fillKota(); fillSettings(); $('date').value=S.date;
+sync(); renderAll(); restartTimer();
+if(S.cfg.cust||S.cfg.tek) refresh(false); else showStatus();
+if(window.__PT_TEST) window.__PT_TEST.api={S:S,sync:sync,renderAll:renderAll,loadSample:loadSample,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,resetAll:resetAll,techs:techs,membersOf:membersOf,waText:waText,recapText:recapText,tsvText:tsvText,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
+})();
+</script>
+</body>
+</html>
