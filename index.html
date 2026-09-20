@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Sistem Pembagian Orderan</title>
+<title>Pembagian teknisi</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
 <style>
 :root{
@@ -96,7 +96,7 @@ details.card>summary{margin:-4px 0 0}
 </head>
 <body>
 <main class="wrap">
-  <h1><center>Sistem Pembagian Orderan</center></h1>
+  <h1>Pembagian teknisi</h1>
   <nav class="tabs" role="tablist" aria-label="Menu">
     <button role="tab" id="tab-tugas" data-tab="tugas" aria-selected="true" aria-controls="p-tugas">Penugasan</button>
     <button role="tab" id="tab-teknisi" data-tab="teknisi" aria-selected="false" aria-controls="p-teknisi">Teknisi</button>
@@ -105,10 +105,6 @@ details.card>summary{margin:-4px 0 0}
 
   <!-- PENUGASAN -->
   <section id="p-tugas" role="tabpanel" aria-labelledby="tab-tugas">
-    <div class="bar">
-      <button class="btn primary small" id="refresh" type="button">Perbarui data</button>
-      <button class="btn ghost small" id="reset" type="button">Atur ulang semua</button>
-    </div>
     <p id="status" role="status"></p>
     <div id="out"></div>
   </section>
@@ -165,10 +161,10 @@ details.card>summary{margin:-4px 0 0}
       </details>
     </div>
     <div class="card">
-      <h2>Pembaruan otomatis</h2>
+      <h2>Pembacaan otomatis</h2>
       <div class="fields">
-        <label class="field"><span>Perbarui data otomatis</span>
-          <select id="s-int"><option value="0">Tidak</option><option value="2">Tiap 2 menit</option><option value="5">Tiap 5 menit</option><option value="10">Tiap 10 menit</option><option value="15">Tiap 15 menit</option></select></label>
+        <label class="field"><span>Baca ulang spreadsheet</span>
+          <select id="s-int"><option value="1">Tiap 1 menit</option><option value="2">Tiap 2 menit</option><option value="5">Tiap 5 menit</option><option value="10">Tiap 10 menit</option></select></label>
       </div>
       <div class="row">
         <button class="btn primary" id="s-save" type="button">Simpan dan perbarui</button>
@@ -186,8 +182,9 @@ details.card>summary{margin:-4px 0 0}
         <li>Kolom Teknisi di spreadsheet dan catatan seperti “minta teknisi Hendi” mengunci order itu ke teknisi tersebut.</li>
         <li>Catatan jam hanya dipakai untuk mengurutkan kunjungan. Jam yang sama tidak diperingatkan, biar teknisi yang berkoordinasi dengan customer.</li>
         <li>Tombol Reschedule menulis “Reschedule” beserta tanggal dan nama teknisi ke kolom Teknisi di spreadsheet. Ubah kolom Time ke tanggal baru agar order muncul lagi di tanggal itu. Tombol ini hanya ada bila web app Apps Script terpasang.</li>
-        <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Yang menyimpan terakhir menang, jadi hindari dua orang mengubah hal yang sama bersamaan.</li>
-        <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada.</li>
+        <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Bila dua orang mengubah hal yang sama bersamaan, yang menyimpan terakhir menang.</li>
+        <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan berkala sesuai pengaturan. Tidak ada tombol perbarui.</li>
+        <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada. Perubahan dari perangkat lain ikut terbaca di pembacaan berikutnya.</li>
       </ul>
     </details>
   </section>
@@ -207,7 +204,7 @@ details.card>summary{margin:-4px 0 0}
 const REPO_CONFIG={
   api:'',      // URL web app Apps Script, yang berakhiran /exec
   token:'',    // sama persis dengan TOKEN di Code.gs
-  cust:'', tek:'', interval:5
+  cust:'', tek:'', interval:2
 };
 const COLORS=['#1F6FEB','#E4572E','#2E9E5B','#8E44AD','#C79A00','#C2185B','#00838F','#8D6E63','#546E7A','#7CB342'];
 const HOME_W=0.35;
@@ -645,7 +642,7 @@ function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:'};
 const S={tab:'tugas',cfg:Object.assign({},REPO_CONFIG),local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
-  rev:0,pushed:'',pushT:null,pushing:false,syncErr:'',saving:false};
+  rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:''};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -705,7 +702,9 @@ function schedulePush(){
   S.pushT=setTimeout(pushState,600);
 }
 function pushState(){
-  if(!S.cfg.api||S.pushing) return Promise.resolve();
+  S.pushT=null;
+  if(!S.cfg.api) return Promise.resolve();
+  if(S.pushing){ S.pushAgain=true; return Promise.resolve(); }
   const body=JSON.stringify(S.day), date=S.date;
   S.pushing=true; S.saving=true; showStatus();
   return apiPost({aksi:'simpanState',tanggal:date,state:S.day,rev:S.rev}).then(function(j){
@@ -714,6 +713,7 @@ function pushState(){
     S.syncErr='Perubahan belum tersimpan ke spreadsheet: '+(e&&e.message?e.message:'periksa koneksi');
   }).then(function(){
     S.pushing=false; S.saving=false; showStatus();
+    if(S.pushAgain){ S.pushAgain=false; schedulePush(); }
   });
 }
 function pushUndo(label){S.undo={label:label,day:JSON.parse(JSON.stringify(S.day)),date:S.date};}
@@ -836,7 +836,7 @@ function refresh(byUser){
     if(byUser) msg('Belum ada sumber data. Buka tab Pengaturan.',false);
     sync(); renderAll(); return Promise.resolve();
   }
-  S.busy=true; msg('Memperbarui data...');
+  S.busy=true; if(!S.lastFetch) msg('Membaca data dari spreadsheet...');
   const jobs=[];
   if(S.cfg.tek) jobs.push(fetchCsv(S.cfg.tek).then(function(t){S.sheetRoster=mapTechRows(parseDelim(t,','));invalidateTechs();}));
   if(S.cfg.cust) jobs.push(fetchCsv(S.cfg.cust).then(function(t){const m=mapRows(parseDelim(t,','));S.rowsAll=m.rows;S.hasDate=m.hasDate;S.source='sheet';}));
@@ -846,12 +846,14 @@ function refresh(byUser){
     S.error='Gagal mengambil data: '+(e&&e.message?e.message:'periksa koneksi')+'. Pastikan link sudah dipublikasikan sebagai CSV.';
   }).then(function(){
     S.busy=false;
-    const added=sync(); renderAll(); showStatus();
-    if(added>0) toast(added+' alamat baru ditambahkan');
+    const added=sync(); renderIfChanged(); showStatus();
+    if(added>0) toast(added+' order baru ditambahkan');
   });
 }
 // Simpan penugasan dari server ke penyimpanan lokal untuk tanggal itu.
 function applyServerState(date,j){
+  // Jangan timpa perubahan korlap yang belum sempat tersimpan ke spreadsheet.
+  if(S.pushT||S.pushing||(S.pushed&&JSON.stringify(loadDay(date))!==S.pushed)) return;
   if(j&&j.state&&j.state.assign){
     lsSet(LS.day+date,{assign:j.state.assign,off:j.state.off||[],init:!!j.state.init});
     S.rev=j.rev||0; S.pushed=JSON.stringify(loadDay(date));
@@ -859,7 +861,7 @@ function applyServerState(date,j){
 }
 // Ambil customer, teknisi, dan penugasan bersama dari web app.
 function refreshApi(){
-  S.busy=true; msg('Memperbarui data...');
+  S.busy=true; if(!S.lastFetch) msg('Membaca data dari spreadsheet...');
   const req=S.date;
   return apiGet({aksi:'data',tanggal:req}).then(function(j){
     if(Array.isArray(j.teknisi)){ S.sheetRoster=mapTechRows(j.teknisi); invalidateTechs(); }
@@ -874,7 +876,7 @@ function refreshApi(){
     S.error='Gagal menghubungi web app: '+(e&&e.message?e.message:'periksa koneksi')+'.';
   }).then(function(){
     S.busy=false;
-    const added=sync(); renderAll(); showStatus();
+    const added=sync(); renderIfChanged(); showStatus();
     if(added>0) toast(added+' order baru ditambahkan');
   });
 }
@@ -883,15 +885,15 @@ function showStatus(){
   if(S.syncErr){ msg(S.syncErr,true); return; }
   if(S.saving){ msg('Menyimpan ke spreadsheet...'); return; }
   const parts=[];
-  if(S.lastFetch) parts.push('Diperbarui pukul '+fmtTime(S.lastFetch)+(S.cfg.api?', tersimpan bersama di spreadsheet':''));
+  if(S.lastFetch) parts.push('Dibaca dari spreadsheet pukul '+fmtTime(S.lastFetch)+(S.cfg.api?', perubahan korlap tersimpan bersama':''));
   else if(S.source==='manual') parts.push('Data dari tempel manual');
   if(S.rowsAll.length&&!S.hasDate) parts.push('Sheet tanpa kolom Time, semua baris dipakai');
   msg(parts.join('. '));
 }
 function restartTimer(){
   if(S.timer){clearInterval(S.timer);S.timer=null;}
-  const m=parseInt(S.cfg.interval,10)||0;
-  if(m>0&&(S.cfg.api||S.cfg.cust||S.cfg.tek)) S.timer=setInterval(function(){ if(!document.hidden) refresh(false); },m*60000);
+  const m=[1,2,5,10].indexOf(parseInt(S.cfg.interval,10))>=0?parseInt(S.cfg.interval,10):2;
+  if(S.cfg.api||S.cfg.cust||S.cfg.tek) S.timer=setInterval(function(){ if(!document.hidden) refresh(false); },m*60000);
 }
 
 // ----- Render: Penugasan -----
@@ -1153,10 +1155,6 @@ function doUndo(){
   S.day=S.undo.day; saveDay(); S.undo=null;
   sync(); renderAll();
 }
-function resetAll(){
-  pushUndo('Semua alamat dikelompokkan ulang.');
-  S.day.assign={}; S.day.init=false; saveDay(); sync(); renderAll(); toast('Dikelompokkan ulang');
-}
 
 function copyText(text,label){
   function fallback(){
@@ -1212,7 +1210,7 @@ function tulisReschedule(r,nilai,pesanOk){
 function doResched(key){
   const r=S.dayRows.find(function(x){return x.key===key;}); if(!r) return;
   if(!S.cfg.api){ toast('Reschedule perlu web app Apps Script'); return; }
-  if(!r.baris){ toast('Baris belum dikenali, tekan Perbarui data dulu'); return; }
+  if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
   const t=techById(S.day.assign[key]);
   tulisReschedule(r,'Reschedule '+(r.date||S.date)+(t?' ('+t.nama+')':''),(r.nama||'Order')+' masuk daftar reschedule');
 }
@@ -1236,25 +1234,28 @@ function fillSettings(){
 function saveSettings(){
   S.cfg.api=$('s-api').value.trim(); S.cfg.token=$('s-token').value.trim();
   S.cfg.cust=$('s-cust').value.trim(); S.cfg.tek=$('s-tek').value.trim();
-  S.cfg.interval=parseInt($('s-int').value,10)||0;
+  S.cfg.interval=parseInt($('s-int').value,10)||2;
   saveCfg(); restartTimer();
   if(!S.cfg.api&&!S.cfg.tek&&S.sheetRoster.length){S.sheetRoster=[];invalidateTechs();}
   S.rev=0; S.pushed='';
   refresh(true).then(function(){toast('Pengaturan disimpan');});
   setTab('tugas');
 }
-function renderAll(){ renderTugas(); renderRoster(); }
+function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); }
+// Bacaan otomatis hanya menggambar ulang bila isinya berubah, supaya layar tidak berkedip.
+function sigNow(){
+  return JSON.stringify([S.date,
+    S.dayRows.map(function(r){return [r.key,r.note,r.pin,r.baris,r.level];}),
+    (S.reschedRows||[]).map(function(r){return [r.key,r.reschedNote];}),
+    S.day.assign,S.day.off,
+    techs().map(function(t){return [t.id,t.nama,t.telp,t.alamat,t.kec,t.kota,t.lat];}),
+    !!S.cfg.api]);
+}
+function renderIfChanged(){ if(sigNow()!==S.lastSig) renderAll(); }
 
 // ----- Events -----
 document.querySelector('.tabs').addEventListener('click',function(e){
   const b=e.target.closest('button[data-tab]'); if(b) setTab(b.getAttribute('data-tab'));
-});
-$('refresh').addEventListener('click',function(){refresh(true);});
-$('reset').addEventListener('click',function(){
-  const b=$('reset');
-  if(S.armed==='reset'){ S.armed=''; b.textContent='Atur ulang semua'; resetAll(); return; }
-  S.armed='reset'; b.textContent='Yakin? Perubahan manual hilang';
-  setTimeout(function(){ if(S.armed==='reset'){ S.armed=''; b.textContent='Atur ulang semua'; } },4000);
 });
 $('out').addEventListener('change',function(e){
   const el=e.target;
@@ -1306,16 +1307,17 @@ $('s-share').addEventListener('click',function(){
   copyText(shareLink(),'Link korlap');
 });
 document.addEventListener('visibilitychange',function(){
-  if(!document.hidden&&(S.cfg.api||S.cfg.cust||S.cfg.tek)&&(!S.lastFetch||Date.now()-S.lastFetch.getTime()>60000)) refresh(false);
+  if(!document.hidden&&(S.cfg.api||S.cfg.cust||S.cfg.tek)&&(!S.lastFetch||Date.now()-S.lastFetch.getTime()>30000)) refresh(false);
 });
 
 // ----- Mulai -----
 loadCfg(); applyHash();
+if([1,2,5,10].indexOf(parseInt(S.cfg.interval,10))<0) S.cfg.interval=2;
 S.local=lsGet(LS.roster,[]);
 fillKota(); fillSettings();
 sync(); renderAll(); restartTimer();
 if(S.cfg.api||S.cfg.cust||S.cfg.tek) refresh(false); else showStatus();
-if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,resetAll:resetAll,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
+if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
 })();
 </script>
 </body>
