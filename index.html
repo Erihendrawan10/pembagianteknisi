@@ -51,8 +51,6 @@ input[type=number],input[type=text],input[type=date],input[type=url],select{font
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
 .bar input[type=date]{width:auto;flex:0 1 190px}
-#status{font-size:13px;color:var(--muted);margin:0 0 10px}
-#status.err{color:var(--danger);font-weight:600}
 .notice{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 8px}
 .undo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;background:var(--soft);border-radius:10px;padding:8px 8px 8px 12px;font-size:14px;margin-bottom:10px}
 .mapbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px}
@@ -92,20 +90,31 @@ details.card>summary{margin:-4px 0 0}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;max-width:90vw;opacity:0;pointer-events:none;z-index:20}
 .toast.on{opacity:1}
 [hidden]{display:none!important}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 2px}
+.topbar h1{margin:0;flex:1}
+.connbtn{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 13px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
+.connbtn .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex:none}
+.connbtn.on .dot{background:var(--ok)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:30;padding:0}
+.modal-overlay[hidden]{display:none!important}
+.modal{background:var(--surface);color:var(--ink);width:100%;max-width:520px;max-height:88vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px}
+@media (min-width:560px){.modal-overlay{align-items:center;padding:16px}.modal{border-radius:16px}}
+.modal h2{margin-top:0}
 </style>
 </head>
 <body>
 <main class="wrap">
-  <h1><center>Sistem Pembagian Orderan</center></h1>
+  <div class="topbar">
+    <h1>Sistem Pembagian Orderan</h1>
+    <button class="connbtn" id="connBtn" type="button" aria-haspopup="dialog"><span class="dot"></span><span id="connBtnText">Tidak tersambung</span></button>
+  </div>
   <nav class="tabs" role="tablist" aria-label="Menu">
     <button role="tab" id="tab-tugas" data-tab="tugas" aria-selected="true" aria-controls="p-tugas">Penugasan</button>
     <button role="tab" id="tab-teknisi" data-tab="teknisi" aria-selected="false" aria-controls="p-teknisi">Teknisi</button>
-    <button role="tab" id="tab-atur" data-tab="atur" aria-selected="false" aria-controls="p-atur">Pengaturan</button>
   </nav>
 
   <!-- PENUGASAN -->
   <section id="p-tugas" role="tabpanel" aria-labelledby="tab-tugas">
-    <p id="status" role="status"></p>
     <div id="out"></div>
   </section>
 
@@ -138,41 +147,23 @@ details.card>summary{margin:-4px 0 0}
     </details>
   </section>
 
-  <!-- PENGATURAN -->
-  <section id="p-atur" role="tabpanel" aria-labelledby="tab-atur" hidden>
-    <div class="card">
-      <h2>Sumber data</h2>
-      <div class="fields">
-        <label class="field"><span>Link web app Apps Script (disarankan)</span><input type="url" id="s-api" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></label>
-        <label class="field"><span>Kata kunci web app</span><input type="text" id="s-token" placeholder="Sesuai TOKEN di Code.gs" autocomplete="off"></label>
-      </div>
-      <p class="hint">Dengan web app, pembagian tersimpan di spreadsheet, jadi korlap di perangkat mana pun melihat hasil yang sama.</p>
-      <details class="how">
-        <summary>Alternatif: link CSV (hanya baca, tidak bisa dibagi antar perangkat)</summary>
-        <div class="fields" style="margin-top:10px">
-          <label class="field"><span>Link spreadsheet customer</span><input type="url" id="s-cust" placeholder="https://docs.google.com/spreadsheets/d/e/..." autocomplete="off"></label>
-          <label class="field"><span>Link spreadsheet teknisi (opsional)</span><input type="url" id="s-tek" placeholder="https://docs.google.com/spreadsheets/d/e/..." autocomplete="off"></label>
-        </div>
-        <ul>
-          <li>Buka Google Sheets, pilih File, Bagikan, Publikasikan ke web, lalu pilih sheet dan format CSV.</li>
-          <li>Kolom customer: nama, telepon, alamat, kecamatan, kota, provinsi, catatan. Jika ada baris judul dengan kolom “Time” atau “Tanggal”, hanya order pada tanggal yang tampil yang dipakai.</li>
-          <li>Link CSV dipakai hanya jika link web app kosong. Perubahan korlap tidak tersimpan bersama, dan tombol Reschedule tidak tersedia.</li>
-        </ul>
-      </details>
+</main>
+
+<!-- SAMBUNGKAN -->
+<div class="modal-overlay" id="connModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="connTitle">
+    <h2 id="connTitle">Sambungkan ke spreadsheet</h2>
+    <div class="fields">
+      <label class="field"><span>Link web app Apps Script (diakhiri /exec)</span><input type="url" id="m-api" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></label>
     </div>
-    <div class="card">
-      <h2>Pembacaan otomatis</h2>
-      <div class="fields">
-        <label class="field"><span>Baca ulang spreadsheet</span>
-          <select id="s-int"><option value="1">Tiap 1 menit</option><option value="2">Tiap 2 menit</option><option value="5">Tiap 5 menit</option><option value="10">Tiap 10 menit</option></select></label>
-      </div>
-      <div class="row">
-        <button class="btn primary" id="s-save" type="button">Simpan dan perbarui</button>
-        <button class="btn ghost" id="s-share" type="button">Salin link untuk korlap</button>
-      </div>
-      <p class="hint" style="margin-top:10px">Link untuk korlap membawa pengaturan ini (termasuk link web app dan kata kunci), jadi kirim lewat jalur pribadi saja.</p>
+    <p class="hint" id="m-err" style="display:none;color:var(--danger)"></p>
+    <p class="hint">Tempel link dari Deploy, Web app di Apps Script. Dengan link ini, pembagian tersimpan di spreadsheet, jadi korlap di perangkat mana pun melihat hasil yang sama.</p>
+    <div class="row">
+      <button class="btn primary" id="m-save" type="button">Simpan dan sambungkan</button>
+      <button class="btn ghost" id="m-share" type="button">Salin link untuk korlap</button>
+      <button class="btn ghost" id="m-close" type="button">Tutup</button>
     </div>
-    <details class="how">
+    <details class="how" style="margin-top:14px">
       <summary>Cara kerja dan batasannya</summary>
       <ul>
         <li>Tanggal yang tampil dipilih otomatis dari kolom Time: hari ini bila ada order, kalau tidak tanggal terdekat berikutnya.</li>
@@ -182,14 +173,14 @@ details.card>summary{margin:-4px 0 0}
         <li>Kolom Teknisi di spreadsheet terisi otomatis dengan nama teknisi sesuai pembagian di halaman, dan ikut berubah saat korlap memindahkan order lewat dropdown. Sebaliknya, nama teknisi yang diketik langsung di kolom itu akan diikuti halaman. Teks lain yang bukan nama teknisi tidak ditimpa.</li>
         <li>Catatan seperti “minta teknisi Hendi” di kolom Note menempatkan order itu ke teknisi tersebut saat pertama dibagi.</li>
         <li>Catatan jam hanya dipakai untuk mengurutkan kunjungan. Jam yang sama tidak diperingatkan, biar teknisi yang berkoordinasi dengan customer.</li>
-        <li>Tombol Reschedule menulis “Reschedule” di kolom Teknisi. Setelah kolom Time diubah ke tanggal baru, hapus tulisan Reschedule itu (atau tekan Kembalikan) agar order muncul lagi. Tombol ini dan penulisan nama teknisi hanya ada bila web app Apps Script terpasang.</li>
+        <li>Tombol Reschedule menulis “Reschedule” di kolom Teknisi. Setelah kolom Time diubah ke tanggal baru, hapus tulisan Reschedule itu (atau tekan Kembalikan) agar order muncul lagi.</li>
         <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Bila dua orang mengubah hal yang sama bersamaan, yang menyimpan terakhir menang.</li>
-        <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan berkala sesuai pengaturan. Tidak ada tombol perbarui.</li>
-        <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada. Perubahan dari perangkat lain ikut terbaca di pembacaan berikutnya.</li>
+        <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan berkala setiap beberapa menit. Tidak ada tombol perbarui.</li>
+        <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada.</li>
       </ul>
     </details>
-  </section>
-</main>
+  </div>
+</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -204,9 +195,9 @@ details.card>summary{margin:-4px 0 0}
    GitHub privat, dan bagikan alamat halaman hanya ke korlap. */
 const REPO_CONFIG={
   api:'',      // URL web app Apps Script, yang berakhiran /exec
-  token:'',    // sama persis dengan TOKEN di Code.gs
-  cust:'', tek:'', interval:2
+  token:''     // diisi otomatis bila disertakan sebagai ?token=... di link di atas
 };
+const POLL_MIN=2; // baca ulang spreadsheet tiap 2 menit, tetap (tidak bisa diubah lewat UI)
 const COLORS=['#1F6FEB','#E4572E','#2E9E5B','#8E44AD','#C79A00','#C2185B','#00838F','#8D6E63','#546E7A','#7CB342'];
 const HOME_W=0.35;
 const KOTA_LIST=['Kota Tangerang','Kab. Tangerang','Kota Tangerang Selatan','Kota Jakarta Selatan','Kota Jakarta Barat','Kota Jakarta Pusat','Kota Jakarta Utara','Kota Jakarta Timur','Kota Depok','Kota Bekasi','Kab. Bekasi','Kota Bogor','Kabupaten Bogor'];
@@ -660,22 +651,27 @@ function applyHash(){
   let ch=false;
   if(p.get('api')){S.cfg.api=p.get('api');ch=true;}
   if(p.get('token')){S.cfg.token=p.get('token');ch=true;}
-  if(p.get('cust')){S.cfg.cust=p.get('cust');ch=true;}
-  if(p.get('tek')){S.cfg.tek=p.get('tek');ch=true;}
-  if(p.get('int')!=null&&p.get('int')!==''){S.cfg.interval=parseInt(p.get('int'),10)||0;ch=true;}
   if(ch){ saveCfg(); try{history.replaceState(null,'',location.pathname+location.search);}catch(e){} }
 }
 function shareLink(){
   const p=new URLSearchParams();
   if(S.cfg.api) p.set('api',S.cfg.api);
   if(S.cfg.token) p.set('token',S.cfg.token);
-  if(S.cfg.cust) p.set('cust',S.cfg.cust);
-  if(S.cfg.tek) p.set('tek',S.cfg.tek);
-  p.set('int',S.cfg.interval);
   return location.origin+location.pathname+'#'+p.toString();
 }
+// Pisahkan ?token=... dari link web app yang ditempel, supaya tidak perlu kolom terpisah.
+function parseApiInput(raw){
+  raw=String(raw||'').trim();
+  if(!raw) return {api:'',token:''};
+  try{
+    const u=new URL(raw);
+    const tok=u.searchParams.get('token')||'';
+    u.searchParams.delete('token');
+    const qs=u.searchParams.toString();
+    return {api:u.origin+u.pathname+(qs?'?'+qs:''),token:tok};
+  }catch(e){ return {api:raw,token:''}; }
+}
 
-function msg(t,err){const m=$('status'); m.textContent=t||''; m.className=err?'err':'';}
 let toastT;
 function toast(t){const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(function(){el.classList.remove('on');},2600);}
 
@@ -863,45 +859,11 @@ function apiPost(payload){
     redirect:'follow'
   }).then(readJson);
 }
-function csvUrl(u){
-  u=String(u||'').trim();
-  if(/docs\.google\.com\/spreadsheets\/d\/e\//.test(u)){
-    u=u.replace('/pubhtml','/pub');
-    return /[?&]output=/.test(u)?u:(u+(u.indexOf('?')>=0?'&':'?')+'output=csv');
-  }
-  const m=u.match(/docs\.google\.com\/spreadsheets\/d\/([^/?#]+)/);
-  if(m){ const g=u.match(/[#&?]gid=(\d+)/); return 'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(g?'&gid='+g[1]:''); }
-  return u;
-}
-function fetchCsv(url){
-  return fetch(csvUrl(url),{cache:'no-store'}).then(function(r){
-    if(!r.ok) throw new Error('Spreadsheet menjawab '+r.status);
-    return r.text();
-  }).then(function(t){
-    if(/^\s*<(!doctype|html)/i.test(t)) throw new Error('Spreadsheet belum dipublikasikan atau belum dibagikan');
-    return t;
-  });
-}
 function refresh(byUser){
   if(S.busy) return Promise.resolve();
   if(S.cfg.api) return refreshApi();
-  if(!S.cfg.cust&&!S.cfg.tek){
-    if(byUser) msg('Belum ada sumber data. Buka tab Pengaturan.',false);
-    sync(); renderAll(); return Promise.resolve();
-  }
-  S.busy=true; if(!S.lastFetch) msg('Membaca data dari spreadsheet...');
-  const jobs=[];
-  if(S.cfg.tek) jobs.push(fetchCsv(S.cfg.tek).then(function(t){S.sheetRoster=mapTechRows(parseDelim(t,','));invalidateTechs();}));
-  if(S.cfg.cust) jobs.push(fetchCsv(S.cfg.cust).then(function(t){const m=mapRows(parseDelim(t,','));S.rowsAll=m.rows;S.hasDate=m.hasDate;S.source='sheet';}));
-  return Promise.all(jobs).then(function(){
-    S.lastFetch=new Date(); S.error='';
-  }).catch(function(e){
-    S.error='Gagal mengambil data: '+(e&&e.message?e.message:'periksa koneksi')+'. Pastikan link sudah dipublikasikan sebagai CSV.';
-  }).then(function(){
-    S.busy=false;
-    const added=sync(); renderIfChanged(); showStatus();
-    if(added>0) toast(added+' order baru ditambahkan');
-  });
+  if(byUser) toast('Belum tersambung. Ketuk tombol di kanan atas untuk menghubungkan spreadsheet.');
+  sync(); renderAll(); showStatus(); return Promise.resolve();
 }
 // Simpan penugasan dari server ke penyimpanan lokal untuk tanggal itu.
 function applyServerState(date,j){
@@ -914,7 +876,7 @@ function applyServerState(date,j){
 }
 // Ambil customer, teknisi, dan penugasan bersama dari web app.
 function refreshApi(){
-  S.busy=true; if(!S.lastFetch) msg('Membaca data dari spreadsheet...');
+  S.busy=true;
   const req=S.date, t0=Date.now();
   return apiGet({aksi:'data',tanggal:req}).then(function(j){
     if(S.changedAt>t0){ S.stale=true; return; }
@@ -936,20 +898,17 @@ function refreshApi(){
     if(S.stale){ S.stale=false; setTimeout(function(){ refresh(false); },1500); }
   });
 }
+// Tombol kecil di kanan atas: hijau bila tersambung ke spreadsheet, merah bila tidak.
 function showStatus(){
-  if(S.error){ msg(S.error,true); return; }
-  if(S.syncErr){ msg(S.syncErr,true); return; }
-  if(S.saving){ msg('Menyimpan ke spreadsheet...'); return; }
-  const parts=[];
-  if(S.lastFetch) parts.push('Dibaca dari spreadsheet pukul '+fmtTime(S.lastFetch)+(S.cfg.api?', perubahan korlap tersimpan bersama':''));
-  else if(S.source==='manual') parts.push('Data dari tempel manual');
-  if(S.rowsAll.length&&!S.hasDate) parts.push('Sheet tanpa kolom Time, semua baris dipakai');
-  msg(parts.join('. '));
+  const btn=$('connBtn'), txt=$('connBtnText'); if(!btn) return;
+  const ok=!!S.cfg.api&&!!S.lastFetch&&!S.error;
+  btn.classList.toggle('on',ok);
+  txt.textContent=ok?'Tersambung':(S.cfg.api?'Tidak tersambung':'Belum disambungkan');
+  btn.title=S.error||S.syncErr||(ok?'Data tersinkron dengan spreadsheet':'Ketuk untuk menghubungkan spreadsheet');
 }
 function restartTimer(){
   if(S.timer){clearInterval(S.timer);S.timer=null;}
-  const m=[1,2,5,10].indexOf(parseInt(S.cfg.interval,10))>=0?parseInt(S.cfg.interval,10):2;
-  if(S.cfg.api||S.cfg.cust||S.cfg.tek) S.timer=setInterval(function(){ if(!document.hidden) refresh(false); },m*60000);
+  if(S.cfg.api) S.timer=setInterval(function(){ if(!document.hidden) refresh(false); },POLL_MIN*60000);
 }
 
 // ----- Render: Penugasan -----
@@ -1025,10 +984,10 @@ function renderTugas(){
   let h='';
   if(S.undo&&S.undo.date===S.date) h+='<div class="undo"><span>'+esc(S.undo.label)+'</span><button class="btn ghost small" data-act="undo" type="button">Urungkan</button></div>';
   if(!T.length){
-    h+='<div class="card"><h2>Belum ada teknisi</h2><p class="hint">Tambahkan teknisi dan alamat domisilinya di tab Teknisi, atau hubungkan spreadsheet teknisi di tab Pengaturan.</p></div>';
+    h+='<div class="card"><h2>Belum ada teknisi</h2><p class="hint">Tambahkan teknisi dan alamat domisilinya di tab Teknisi, atau sambungkan spreadsheet lewat tombol di kanan atas.</p></div>';
   }
   if(!rows.length&&!rs.length){
-    h+='<div class="card"><h2>Belum ada order</h2><p class="hint">Hubungkan spreadsheet customer di tab Pengaturan. Order yang diinput ke spreadsheet akan muncul di sini setelah data diperbarui.</p></div>';
+    h+='<div class="card"><h2>Belum ada order</h2><p class="hint">Sambungkan link web app Apps Script lewat tombol di kanan atas. Order yang diinput ke spreadsheet akan muncul di sini setelah data diperbarui.</p></div>';
     out.innerHTML=h; return;
   }
   const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
@@ -1133,7 +1092,7 @@ function renderRoster(){
   $('thint').textContent=S.cfg.api
     ?'Perubahan teknisi langsung tersimpan ke sheet Teknisi, jadi semua perangkat ikut melihatnya. Alamat domisili dipakai untuk mencocokkan alamat customer ke teknisi terdekat. Tombol berhalangan hanya berlaku untuk tanggal yang dipilih di tab Penugasan.'
     :'Alamat domisili dipakai untuk mencocokkan alamat customer ke teknisi yang tinggalnya paling dekat. Tombol berhalangan hanya berlaku untuk tanggal yang sedang dipilih di tab Penugasan.';
-  if(!T.length){ list.innerHTML='<div class="card"><p class="empty">Belum ada teknisi. Tambahkan lewat formulir di bawah, impor dari spreadsheet, atau hubungkan link spreadsheet teknisi di Pengaturan.</p></div>'; return; }
+  if(!T.length){ list.innerHTML='<div class="card"><p class="empty">Belum ada teknisi. Tambahkan lewat formulir di bawah, atau sambungkan spreadsheet lewat tombol di kanan atas.</p></div>'; return; }
   list.innerHTML=T.map(function(t){
     const off=isOff(t.id);
     const loc=S.local.find(function(l){return l.id===t.id;});
@@ -1277,27 +1236,34 @@ function doUnresched(key){
   tulisReschedule(r,'',(r.nama||'Order')+' dikembalikan ke jadwal');
 }
 
-// ----- Tab dan pengaturan -----
+// ----- Tab -----
 function setTab(name){
   S.tab=name;
-  ['tugas','teknisi','atur'].forEach(function(n){
+  ['tugas','teknisi'].forEach(function(n){
     $('p-'+n).hidden=(n!==name);
     $('tab-'+n).setAttribute('aria-selected',n===name?'true':'false');
   });
 }
-function fillSettings(){
-  $('s-api').value=S.cfg.api||''; $('s-token').value=S.cfg.token||'';
-  $('s-cust').value=S.cfg.cust||''; $('s-tek').value=S.cfg.tek||''; $('s-int').value=String(S.cfg.interval);
+// ----- Modal sambungkan -----
+function apiDisplay(){
+  if(!S.cfg.api) return '';
+  return S.cfg.token?(S.cfg.api+(S.cfg.api.indexOf('?')>=0?'&':'?')+'token='+S.cfg.token):S.cfg.api;
 }
-function saveSettings(){
-  S.cfg.api=$('s-api').value.trim(); S.cfg.token=$('s-token').value.trim();
-  S.cfg.cust=$('s-cust').value.trim(); S.cfg.tek=$('s-tek').value.trim();
-  S.cfg.interval=parseInt($('s-int').value,10)||2;
+function openConnModal(){
+  $('m-api').value=apiDisplay();
+  $('m-err').style.display='none';
+  $('connModal').hidden=false;
+  $('m-api').focus();
+}
+function closeConnModal(){ $('connModal').hidden=true; }
+function saveConn(){
+  const parsed=parseApiInput($('m-api').value);
+  if(!parsed.api){ $('m-err').textContent='Isi link web app dulu.'; $('m-err').style.display='block'; return; }
+  S.cfg.api=parsed.api; S.cfg.token=parsed.token||S.cfg.token;
   saveCfg(); restartTimer();
-  if(!S.cfg.api&&!S.cfg.tek&&S.sheetRoster.length){S.sheetRoster=[];invalidateTechs();}
   S.rev=0; S.pushed='';
-  refresh(true).then(function(){toast('Pengaturan disimpan');});
-  setTab('tugas');
+  closeConnModal();
+  refresh(true).then(function(){toast('Tersambung ke spreadsheet');});
 }
 function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); }
 // Bacaan otomatis hanya menggambar ulang bila isinya berubah, supaya layar tidak berkedip.
@@ -1359,22 +1325,24 @@ $('tlist').addEventListener('click',function(e){
 $('f-kota').addEventListener('change',fillKecList);
 $('f-save').addEventListener('click',saveTechForm);
 $('f-cancel').addEventListener('click',function(){resetForm();$('tform-box').open=false;});
-$('s-save').addEventListener('click',saveSettings);
-$('s-share').addEventListener('click',function(){
-  if(!S.cfg.api&&!S.cfg.cust&&!S.cfg.tek){toast('Isi dan simpan link web app atau spreadsheet dulu');return;}
+$('connBtn').addEventListener('click',openConnModal);
+$('m-save').addEventListener('click',saveConn);
+$('m-close').addEventListener('click',closeConnModal);
+$('m-share').addEventListener('click',function(){
+  if(!S.cfg.api){toast('Sambungkan link web app dulu');return;}
   copyText(shareLink(),'Link korlap');
 });
+$('connModal').addEventListener('click',function(e){ if(e.target===$('connModal')) closeConnModal(); });
 document.addEventListener('visibilitychange',function(){
-  if(!document.hidden&&(S.cfg.api||S.cfg.cust||S.cfg.tek)&&(!S.lastFetch||Date.now()-S.lastFetch.getTime()>30000)) refresh(false);
+  if(!document.hidden&&S.cfg.api&&(!S.lastFetch||Date.now()-S.lastFetch.getTime()>30000)) refresh(false);
 });
 
 // ----- Mulai -----
 loadCfg(); applyHash();
-if([1,2,5,10].indexOf(parseInt(S.cfg.interval,10))<0) S.cfg.interval=2;
 S.local=lsGet(LS.roster,[]);
-fillKota(); fillSettings();
-sync(); renderAll(); restartTimer();
-if(S.cfg.api||S.cfg.cust||S.cfg.tek) refresh(false); else showStatus();
+fillKota();
+sync(); renderAll(); restartTimer(); showStatus();
+if(S.cfg.api) refresh(false);
 if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
 })();
 </script>
