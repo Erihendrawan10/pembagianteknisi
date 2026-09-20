@@ -179,9 +179,10 @@ details.card>summary{margin:-4px 0 0}
         <li>Tiap order dibagi ke teknisi yang rumahnya paling dekat, tanpa batas jumlah per teknisi. Jumlah antar teknisi bisa tidak sama, jadi korlap dapat memindahkannya lewat dropdown di tiap order.</li>
         <li>Alamat yang lengkapnya mirip (nama perumahan, jalan, atau kelurahan yang sama) dianggap satu lokasi dan selalu jatuh ke teknisi yang sama. Kalau tidak ada kecocokan, barulah kecamatan yang dipakai.</li>
         <li>Posisi kecamatan memakai titik tengahnya, jadi jarak yang tampil berupa perkiraan. Koordinat seperti -6.2345, 106.8123 di kolom alamat membuat posisinya tepat.</li>
-        <li>Kolom Teknisi di spreadsheet dan catatan seperti “minta teknisi Hendi” mengunci order itu ke teknisi tersebut.</li>
+        <li>Kolom Teknisi di spreadsheet terisi otomatis dengan nama teknisi sesuai pembagian di halaman, dan ikut berubah saat korlap memindahkan order lewat dropdown. Sebaliknya, nama teknisi yang diketik langsung di kolom itu akan diikuti halaman. Teks lain yang bukan nama teknisi tidak ditimpa.</li>
+        <li>Catatan seperti “minta teknisi Hendi” di kolom Note menempatkan order itu ke teknisi tersebut saat pertama dibagi.</li>
         <li>Catatan jam hanya dipakai untuk mengurutkan kunjungan. Jam yang sama tidak diperingatkan, biar teknisi yang berkoordinasi dengan customer.</li>
-        <li>Tombol Reschedule menulis “Reschedule” beserta tanggal dan nama teknisi ke kolom Teknisi di spreadsheet. Ubah kolom Time ke tanggal baru agar order muncul lagi di tanggal itu. Tombol ini hanya ada bila web app Apps Script terpasang.</li>
+        <li>Tombol Reschedule menulis “Reschedule” di kolom Teknisi. Setelah kolom Time diubah ke tanggal baru, hapus tulisan Reschedule itu (atau tekan Kembalikan) agar order muncul lagi. Tombol ini dan penulisan nama teknisi hanya ada bila web app Apps Script terpasang.</li>
         <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Bila dua orang mengubah hal yang sama bersamaan, yang menyimpan terakhir menang.</li>
         <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan berkala sesuai pengaturan. Tidak ada tombol perbarui.</li>
         <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada. Perubahan dari perangkat lain ikut terbaca di pembacaan berikutnya.</li>
@@ -369,7 +370,7 @@ function mapRows(aoa,nums){
     const rm=tekKolom.match(/^reschedule(?:\s+(\d{4}-\d{2}-\d{2}))?/i);
     r.resched=false; r.reschedNote='';
     if(rm){ r.reschedNote=tekKolom; r.resched=!rm[1]||!r.date||rm[1]===r.date; }
-    r.jam=pn.jam; r.jamText=pn.jamText; r.pin=rm?pn.pin:(tekKolom||pn.pin); r.pinKolom=!rm&&!!tekKolom; r.toren=pn.toren; r.rest=pn.rest;
+    r.jam=pn.jam; r.jamText=pn.jamText; r.pin=rm?pn.pin:(tekKolom||pn.pin); r.pinKolom=!rm&&!!tekKolom; r.tekCell=tekKolom; r.toren=pn.toren; r.rest=pn.rest;
     const gc=geocode(r); r.lat=gc.lat; r.lng=gc.lng; r.level=gc.level;
     let key=hash(norm(r.nama)+'|'+norm(r.alamat)+'|'+norm(r.telp)+'|'+r.date);
     if(seen[key]){ seen[key]++; key+='_'+seen[key]; } else seen[key]=1;
@@ -642,7 +643,7 @@ function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:'};
 const S={tab:'tugas',cfg:Object.assign({},REPO_CONFIG),local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
-  rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:''};
+  rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -691,10 +692,11 @@ function eligTechs(){return availTechs().filter(function(t){return t.lat!=null;}
 function saveLocalRoster(){lsSet(LS.roster,S.local);}
 
 // ----- Hari -----
-function loadDay(d){const v=lsGet(LS.day+d,null); return (v&&v.assign)?{assign:v.assign,off:v.off||[],init:!!v.init}:{assign:{},off:[],init:false};}
+function loadDay(d){const v=lsGet(LS.day+d,null); return (v&&v.assign)?{assign:v.assign,off:v.off||[],init:!!v.init,cell:v.cell||{}}:{assign:{},off:[],init:false,cell:{}};}
 function saveDay(){
   lsSet(LS.day+S.date,S.day);
   if(S.cfg.api&&JSON.stringify(S.day)!==S.pushed) schedulePush();
+  scheduleWriteBack();
 }
 // Kirim penugasan hari ini ke spreadsheet lewat web app.
 function schedulePush(){
@@ -714,6 +716,48 @@ function pushState(){
   }).then(function(){
     S.pushing=false; S.saving=false; showStatus();
     if(S.pushAgain){ S.pushAgain=false; schedulePush(); }
+  });
+}
+// ----- Tulis nama teknisi ke kolom Teknisi di spreadsheet -----
+function scheduleWriteBack(){
+  if(!S.cfg.api) return;
+  if(S.wbT) clearTimeout(S.wbT);
+  S.wbT=setTimeout(writeBack,800);
+}
+function writeBack(){
+  S.wbT=null;
+  if(!S.cfg.api) return Promise.resolve();
+  if(S.wbBusy){ S.wbAgain=true; return Promise.resolve(); }
+  const T=techs(), items=[];
+  S.dayRows.forEach(function(r){
+    if(!r.baris) return;
+    const t=techById(S.day.assign[r.key]); if(!t) return;
+    if(r.tekCell===t.nama) return;
+    // Teks lain di kolom Teknisi (bukan nama teknisi) tidak ditimpa.
+    if(r.tekCell&&!/^reschedule/i.test(r.tekCell)&&!T.some(function(x){return norm(x.nama)===norm(r.tekCell);})) return;
+    items.push({r:r,baris:r.baris,nama:r.nama,telp:r.telp,alamat:r.alamat,nilai:t.nama});
+  });
+  (S.reschedRows||[]).forEach(function(r){
+    if(r.baris&&r.tekCell!=='Reschedule') items.push({r:r,baris:r.baris,nama:r.nama,telp:r.telp,alamat:r.alamat,nilai:'Reschedule'});
+  });
+  if(!items.length) return Promise.resolve();
+  S.wbBusy=true;
+  const date=S.date;
+  const kirim=items.map(function(i){return {baris:i.baris,nama:i.nama,telp:i.telp,alamat:i.alamat,nilai:i.nilai};});
+  return apiPost({aksi:'tulisTeknisiBanyak',daftar:kirim}).then(function(j){
+    const oke=j.oke||[];
+    items.forEach(function(i,n){
+      if(oke[n]===false) return;
+      i.r.tekCell=i.nilai;
+      if(date===S.date&&i.nilai!=='Reschedule') S.day.cell[i.r.key]=i.nilai;
+    });
+    S.changedAt=Date.now(); S.syncErr='';
+    if(date===S.date) saveDay();
+  }).catch(function(e){
+    S.syncErr='Nama teknisi belum tersimpan ke spreadsheet: '+(e&&e.message?e.message:'periksa koneksi');
+  }).then(function(){
+    S.wbBusy=false; showStatus();
+    if(S.wbAgain){ S.wbAgain=false; scheduleWriteBack(); }
   });
 }
 function pushUndo(label){S.undo={label:label,day:JSON.parse(JSON.stringify(S.day)),date:S.date};}
@@ -751,8 +795,17 @@ function sync(){
   const rows=prepRows(); S.dayRows=rows;
   const byKey={}; rows.forEach(function(r){byKey[r.key]=r;});
   const avail=availTechs(), ids={}; avail.forEach(function(t){ids[t.id]=1;});
-  const elig=eligTechs(), A=S.day.assign;
+  const elig=eligTechs(), A=S.day.assign, D=S.day;
+  if(!D.cell) D.cell={};
+  Object.keys(D.cell).forEach(function(k){ if(!byKey[k]) delete D.cell[k]; });
   Object.keys(A).forEach(function(k){ if(!byKey[k]||!ids[A[k]]) delete A[k]; });
+  // Nama teknisi di kolom Teknisi yang berubah dari yang terakhir dicatat aplikasi
+  // berarti diubah langsung di spreadsheet: pembagian mengikuti spreadsheet.
+  rows.forEach(function(r){
+    if(!r.pinKolom||!r.pinTech||!ids[r.pinTech]) return;
+    const prev=D.cell[r.key];
+    if(prev===undefined||norm(prev)!==norm(r.tekCell)){ A[r.key]=r.pinTech; D.cell[r.key]=r.tekCell; }
+  });
   if(!S.day.init){
     if(rows.length&&elig.length){ Object.assign(A,autoAssign(rows,elig).assign); S.day.init=true; }
   } else {
@@ -855,15 +908,16 @@ function applyServerState(date,j){
   // Jangan timpa perubahan korlap yang belum sempat tersimpan ke spreadsheet.
   if(S.pushT||S.pushing||(S.pushed&&JSON.stringify(loadDay(date))!==S.pushed)) return;
   if(j&&j.state&&j.state.assign){
-    lsSet(LS.day+date,{assign:j.state.assign,off:j.state.off||[],init:!!j.state.init});
+    lsSet(LS.day+date,{assign:j.state.assign,off:j.state.off||[],init:!!j.state.init,cell:j.state.cell||{}});
     S.rev=j.rev||0; S.pushed=JSON.stringify(loadDay(date));
   }
 }
 // Ambil customer, teknisi, dan penugasan bersama dari web app.
 function refreshApi(){
   S.busy=true; if(!S.lastFetch) msg('Membaca data dari spreadsheet...');
-  const req=S.date;
+  const req=S.date, t0=Date.now();
   return apiGet({aksi:'data',tanggal:req}).then(function(j){
+    if(S.changedAt>t0){ S.stale=true; return; }
     if(Array.isArray(j.teknisi)){ S.sheetRoster=mapTechRows(j.teknisi); invalidateTechs(); }
     if(Array.isArray(j.customer)){ const m=mapRows(j.customer,j.customerBaris); S.rowsAll=m.rows; S.hasDate=!!m.hasDate; S.source='api'; }
     const d=autoDate();
@@ -878,6 +932,8 @@ function refreshApi(){
     S.busy=false;
     const added=sync(); renderIfChanged(); showStatus();
     if(added>0) toast(added+' order baru ditambahkan');
+    // Ada perubahan lokal saat membaca: hasil bacaan sudah usang, baca ulang sebentar lagi.
+    if(S.stale){ S.stale=false; setTimeout(function(){ refresh(false); },1500); }
   });
 }
 function showStatus(){
@@ -919,7 +975,7 @@ function chipsOf(m){
   if(m.jamText) chips+='<span class="chip time">'+esc(m.jamText)+'</span>';
   if(m.toren>1) chips+='<span class="chip">'+m.toren+' toren</span>';
   if(m.level==='kota') chips+='<span class="chip warn">lokasi kasar</span>';
-  if(m.pin&&!m.pinMiss) chips+='<span class="chip">minta '+esc(m.pin)+'</span>';
+  if(m.pin&&!m.pinMiss&&!m.pinKolom) chips+='<span class="chip">minta '+esc(m.pin)+'</span>';
   if(m.pinMiss) chips+='<span class="chip warn">teknisi '+esc(m.pin)+' tidak ada di daftar</span>';
   if(m.grpJml>1) chips+='<span class="chip">satu lokasi ('+m.grpJml+')</span>';
   if(S.fresh.has(m.key)) chips+='<span class="chip new">baru</span>';
@@ -993,7 +1049,7 @@ function renderTugas(){
   }
   if(rs.length){
     h+='<section class="card" style="--tc:#999"><h2>Reschedule ('+rs.length+')</h2>'
-      +'<p class="hint">Tidak dikerjakan pada tanggal ini dan sudah ditandai di kolom Teknisi spreadsheet. Ubah kolom Time di spreadsheet ke tanggal baru agar muncul lagi.</p><ol class="stops">'
+      +'<p class="hint">Tidak dikerjakan pada tanggal ini dan sudah ditandai di kolom Teknisi spreadsheet. Setelah kolom Time diubah ke tanggal baru, tekan Kembalikan agar muncul lagi.</p><ol class="stops">'
       +rs.map(function(m){
         const meta=[m.kec,m.kota].filter(Boolean).join(', ');
         return '<li class="stop"><span class="seq">R</span><div><div><b>'+esc(m.nama||'Tanpa nama')+'</b>'+chipsOf(m)+'</div>'
@@ -1137,6 +1193,7 @@ function editTech(id){
 function toggleOff(id,goOff){
   const t=techById(id); if(!t) return;
   pushUndo(goOff?(t.nama+' ditandai berhalangan. Alamatnya dipindah ke teknisi lain.'):(t.nama+' ditandai hadir.'));
+  S.changedAt=Date.now();
   const cur=loadDay(S.date); cur.off=cur.off.filter(function(x){return x!==id;}); if(goOff) cur.off.push(id);
   lsSet(LS.day+S.date,cur);
   sync(); renderAll();
@@ -1148,11 +1205,13 @@ function toggleOff(id,goOff){
 function moveJob(key,tid){
   const r=S.dayRows.find(function(x){return x.key===key;}); const t=techById(tid); if(!r||!t) return;
   pushUndo(r.nama+' dipindah ke '+t.nama+'.');
+  S.changedAt=Date.now();
   S.day.assign[key]=tid; saveDay(); renderAll();
 }
 function doUndo(){
   if(!S.undo||S.undo.date!==S.date) return;
-  S.day=S.undo.day; saveDay(); S.undo=null;
+  const cellNow=S.day.cell||{};
+  S.day=S.undo.day; S.day.cell=cellNow; S.changedAt=Date.now(); saveDay(); S.undo=null;
   sync(); renderAll();
 }
 
@@ -1204,15 +1263,14 @@ function waText(t){
 function tulisReschedule(r,nilai,pesanOk){
   toast('Menyimpan ke spreadsheet...');
   return apiPost({aksi:'tulisTeknisi',baris:r.baris,nama:r.nama,telp:r.telp,alamat:r.alamat,nilai:nilai}).then(function(){
-    toast(pesanOk); return refresh(false);
+    S.changedAt=Date.now(); toast(pesanOk); return refresh(false);
   }).catch(function(e){ toast('Gagal menyimpan: '+(e&&e.message?e.message:'periksa koneksi')); });
 }
 function doResched(key){
   const r=S.dayRows.find(function(x){return x.key===key;}); if(!r) return;
   if(!S.cfg.api){ toast('Reschedule perlu web app Apps Script'); return; }
   if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
-  const t=techById(S.day.assign[key]);
-  tulisReschedule(r,'Reschedule '+(r.date||S.date)+(t?' ('+t.nama+')':''),(r.nama||'Order')+' masuk daftar reschedule');
+  tulisReschedule(r,'Reschedule',(r.nama||'Order')+' masuk daftar reschedule');
 }
 function doUnresched(key){
   const r=(S.reschedRows||[]).find(function(x){return x.key===key;}); if(!r||!r.baris) return;
