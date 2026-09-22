@@ -170,6 +170,8 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <h2 id="cfg-title">Sambungan spreadsheet</h2>
     <p class="hint" id="cfg-state"></p>
     <label class="field"><span>Link web app Apps Script</span><input type="url" id="s-api" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" inputmode="url"></label>
+    <label class="check"><input type="checkbox" id="s-wabiz"> <span>Buka pesan WA lewat WhatsApp Business, bukan WhatsApp biasa</span></label>
+    <p class="hint" style="margin:-6px 0 0">Hanya berpengaruh di Android/Chrome. Kalau WhatsApp Business tidak terpasang di perangkat ini, otomatis kembali ke WhatsApp biasa. Berlaku khusus perangkat ini.</p>
     <p class="notice" id="cfg-err" hidden></p>
     <div class="row">
       <button class="btn primary" id="s-save" type="button">Simpan dan sambungkan</button>
@@ -686,7 +688,7 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='1.0';
+const APP_VERSION='1.1';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -695,8 +697,8 @@ function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth
 function fmtDate(s){const p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
 function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 
-const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:'};
-const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
+const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:',wabiz:'pt2:wabiz'};
+const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},waBiz:false,local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
   rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false,
   force:new Set(),fromSheet:0,wbToast:false,ordersOpen:null,failCount:0};
@@ -704,10 +706,11 @@ const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techs
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
-// Pengaturan hanya satu: link web app Apps Script.
+// Pengaturan: link web app Apps Script + preferensi WhatsApp Business (per perangkat).
 function loadCfg(){
   const s=lsGet(LS.cfg,null);
   S.cfg={api:String((s&&s.api)||REPO_CONFIG.api||'').trim()};
+  S.waBiz=!!lsGet(LS.wabiz,false);
 }
 function saveCfg(){ lsSet(LS.cfg,{api:S.cfg.api}); }
 function applyHash(){
@@ -743,7 +746,7 @@ function renderConn(){
   $('cfg-state').textContent=d;
 }
 function openCfg(){
-  $('s-api').value=S.cfg.api||''; $('cfg-err').hidden=true; renderConn();
+  $('s-api').value=S.cfg.api||''; $('s-wabiz').checked=!!S.waBiz; $('cfg-err').hidden=true; renderConn();
   const d=$('cfg-dlg');
   if(typeof d.showModal==='function'){ if(!d.open) d.showModal(); } else d.setAttribute('open','');
 }
@@ -760,6 +763,7 @@ function saveSettings(){
     if(!/\/exec(\?.*)?$/i.test(u)){ bad('Link harus berakhiran /exec (URL dari Deploy, Web app), bukan /dev.'); return; }
   }
   err.hidden=true;
+  S.waBiz=$('s-wabiz').checked; lsSet(LS.wabiz,S.waBiz);
   S.cfg.api=u; saveCfg(); restartTimer();
   S.lastFetch=null; S.error=''; S.syncErr=''; S.rev=0; S.pushed='';
   if(!u){
@@ -1099,6 +1103,37 @@ function waNumber(telp){
   else if(d.slice(0,2)!=='62') d='62'+d;
   return d;
 }
+// Tautan kirim WA. Bila diaktifkan di Pengaturan, buka lewat WhatsApp Business (Android/Chrome);
+// kalau tidak terpasang, otomatis jatuh ke wa.me. Bila dimatikan, buka lewat WhatsApp biasa
+// dengan cara yang sama (intent eksplisit), supaya pilihannya benar-benar berlaku dan tidak
+// tergantung aplikasi WA mana yang diset sebagai default handler di perangkat.
+function waLink(num,text){
+  const wa='https://wa.me/'+num+'?text='+encodeURIComponent(text);
+  if(!/Android/i.test(navigator.userAgent||'')) return wa;
+  const pkg=S.waBiz?'com.whatsapp.w4b':'com.whatsapp';
+  return 'intent://send?phone='+num+'&text='+encodeURIComponent(text)
+    +'#Intent;scheme=whatsapp;package='+pkg+';browser_fallback_url='+encodeURIComponent(wa)+';end';
+}
+// Batas perkiraan panjang teks per pesan WA. Pemotongan dihitung dari perkiraan panjang
+// karakter tiap order (alamat, catatan, dsb bisa jauh lebih panjang dari yang lain), bukan
+// dari jumlah order tetap, supaya pesan tidak terpotong di tengah saat alamatnya panjang.
+const WA_MAXCHARS=1200;
+function waEstLen(m){
+  return 60+String(m.nama||'').length+String(m.telp||'').length+String(m.alamat||'').length
+    +String(m.kec||'').length+String(m.kota||'').length+String(m.prov||'').length+String(m.note||'').length;
+}
+function waParts(t){
+  const mem=orderRoute(membersOf(t.id),t);
+  const parts=[]; let cur=[], len=0;
+  mem.forEach(function(m){
+    const est=waEstLen(m);
+    if(cur.length&&(len+est>WA_MAXCHARS)){ parts.push(cur); cur=[]; len=0; }
+    cur.push(m); len+=est;
+  });
+  if(cur.length) parts.push(cur);
+  if(parts.length<=1) return [{list:mem,idx:1,total:1}];
+  return parts.map(function(list,i){return {list:list,idx:i+1,total:parts.length};});
+}
 function cardHTML(t){
   const mem=membersOf(t.id), ordered=orderRoute(mem,t);
   const span=maxPair(mem);
@@ -1119,7 +1154,10 @@ function cardHTML(t){
     const url='https://www.google.com/maps/dir/'+[homeQuery(t)].concat(ordered.map(mapsQuery)).map(encodeURIComponent).join('/');
     const num=waNumber(t.telp);
     if(num){
-      h+='<a class="btn ghost small" href="https://wa.me/'+num+'?text='+encodeURIComponent(waText(t))+'" target="_blank" rel="noopener">Kirim ke WA teknisi</a>';
+      waParts(t).forEach(function(part){
+        const label='Kirim ke WA teknisi'+(part.total>1?' (bagian '+part.idx+'/'+part.total+')':'');
+        h+='<a class="btn ghost small" href="'+waLink(num,waText(t,part))+'" target="_blank" rel="noopener">'+esc(label)+'</a>';
+      });
     } else {
       h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" type="button">Salin pesan (no. WA belum diisi)</button>';
     }
@@ -1386,9 +1424,11 @@ function waAlamat(m){
   return {teks:parts.join(', '),urls:urls};
 }
 // Format WhatsApp: *tebal*, satu blok per order, nomor WA dan alamat lengkap.
-function waText(t){
-  const mem=orderRoute(membersOf(t.id),t);
-  let s='*JADWAL '+String(t.nama).toUpperCase()+'*\n'+fmtDate(S.date)+'\n'+mem.length+' order\n';
+// part opsional {list,idx,total}: dipakai saat pesan dipecah karena order terlalu banyak (lihat waParts).
+function waText(t,part){
+  const mem=part?part.list:orderRoute(membersOf(t.id),t);
+  const label=part&&part.total>1?(' (bagian '+part.idx+'/'+part.total+')'):'';
+  let s='*JADWAL '+String(t.nama).toUpperCase()+label+'*\n'+fmtDate(S.date)+'\n'+mem.length+' order'+(part&&part.total>1?(' dari total '+membersOf(t.id).length):'')+'\n';
   mem.forEach(function(m,i){
     const a=waAlamat(m);
     s+='\n*'+(i+1)+'. '+(m.nama||'Tanpa nama')+'*\n';
@@ -1404,7 +1444,7 @@ function waText(t){
 function reschedWaBtn(m){
   const num=waNumber(m.telp); if(!num) return '';
   const teks='Halo '+(m.nama||'')+', mohon maaf jadwal kunjungan servis pada '+fmtDate(S.date)+' perlu dijadwalkan ulang. Kapan waktu yang pas untuk kunjungan berikutnya?';
-  return '<a class="btn ghost small" href="https://wa.me/'+num+'?text='+encodeURIComponent(teks)+'" target="_blank" rel="noopener">Follow up WA</a>';
+  return '<a class="btn ghost small" href="'+waLink(num,teks)+'" target="_blank" rel="noopener">Follow up WA</a>';
 }
 
 // Tandai order tidak bisa dikerjakan: tulis ke kolom Teknisi di spreadsheet.
