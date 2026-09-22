@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="application-name" content="Sistem Pembagian Orderan 1.0">
+<meta name="application-name" content="Sistem Pembagian Orderan 2.0">
 <title>Sistem Pembagian Orderan</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
 <style>
@@ -216,13 +216,6 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       </ul>
     </details>
     <p class="ver ver-t" style="margin-top:12px"></p>
-  </div>
-</dialog>
-<dialog id="orders-dlg" aria-labelledby="orders-title">
-  <div class="dlg-body" id="orders-body">
-    <h2 id="orders-title">Teknisi</h2>
-    <div id="orders-list"></div>
-    <div class="row"><button class="btn ghost" id="orders-close" type="button">Tutup</button></div>
   </div>
 </dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -699,7 +692,7 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='1.0';
+const APP_VERSION='2.0';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -712,7 +705,7 @@ const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:',wabiz:'pt2:wabiz'};
 const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
   rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false,
-  force:new Set(),fromSheet:0,wbToast:false,ordersOpen:null,failCount:0,waBiz:false};
+  force:new Set(),fromSheet:0,wbToast:false,expanded:new Set(),failCount:0,waBiz:false};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -1140,51 +1133,25 @@ function cardHTML(t){
   const warns=[];
   if(span>25) warns.push('Jarak antar order sampai '+Math.round(span)+' km, cek lagi pembagiannya.');
   const home=[t.kec,t.kota].filter(Boolean).join(', ');
+  const open=S.expanded.has(t.id);
   const namaHTML=mem.length
-    ? '<button type="button" class="tname" data-act="show-orders" data-tid="'+esc(t.id)+'">'+esc(t.nama)+'</button>'
+    ? '<button type="button" class="tname" data-act="toggle-orders" data-tid="'+esc(t.id)+'" aria-expanded="'+(open?'true':'false')+'">'+esc(t.nama)+'</button>'
     : '<h3 class="tname">'+esc(t.nama)+'</h3>';
   let h='<section class="card tech" style="--tc:'+t.color+'">'
     +'<div class="thead">'+namaHTML+'<span class="badge">'+mem.length+' order</span></div>'
-    +'<p class="tmeta">Rumah di '+esc(home||'-')+(mem.length&&far?', order terjauh sekitar '+Math.round(far)+' km dari rumah':'')+(mem.length?', ketuk nama untuk lihat daftar order':'')+'</p>'
+    +'<p class="tmeta">Rumah di '+esc(home||'-')+(mem.length&&far?', order terjauh sekitar '+Math.round(far)+' km dari rumah':'')+(mem.length?', ketuk nama untuk '+(open?'sembunyikan':'lihat')+' daftar order':'')+'</p>'
     +warns.map(function(w){return '<p class="notice">'+esc(w)+'</p>';}).join('');
   if(!mem.length) h+='<p class="empty">Belum ada order untuk teknisi ini.</p>';
+  if(mem.length&&open) h+='<ol class="stops">'+ordered.map(function(m,i){return stopHTML(m,i,t.id);}).join('')+'</ol>';
   h+='<div class="tfoot">';
   if(mem.length){
-    const url='https://www.google.com/maps/dir/'+[homeQuery(t)].concat(ordered.map(mapsQuery)).map(encodeURIComponent).join('/');
-    const num=waNumber(t.telp);
-    if(num){
-      waParts(t).forEach(function(part){
-        const label='Kirim ke WA teknisi'+(part.total>1?' (bagian '+part.idx+'/'+part.total+')':'');
-        h+='<a class="btn ghost small" href="'+waLink(num,waText(t,part))+'" target="_blank" rel="noopener">'+esc(label)+'</a>';
-      });
-    } else {
-      h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" type="button">Salin pesan (no. WA belum diisi)</button>';
-    }
-    h+='<a class="btn ghost small" href="'+url+'" target="_blank" rel="noopener">Rute di Maps</a>';
+    waParts(t).forEach(function(part){
+      const label='Salin pesan WA teknisi'+(part.total>1?' (bagian '+part.idx+'/'+part.total+')':'');
+      h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" data-part="'+(part.idx-1)+'" type="button">'+esc(label)+'</button>';
+    });
   }
   h+='<button class="btn ghost small" data-act="off" data-tid="'+esc(t.id)+'" type="button">Berhalangan</button></div></section>';
   return h;
-}
-// Popup daftar order sebuah teknisi, dibuka lewat tombol nama.
-function renderOrdersDialog(){
-  const tid=S.ordersOpen; if(!tid) return;
-  const t=techById(tid);
-  if(!t||isOff(tid)){ closeOrders(); return; }
-  const mem=membersOf(tid), ordered=orderRoute(mem,t);
-  $('orders-title').textContent=t.nama+' ('+mem.length+' order)';
-  $('orders-list').innerHTML=mem.length
-    ? '<ol class="stops">'+ordered.map(function(m,i){return stopHTML(m,i,t.id);}).join('')+'</ol>'
-    : '<p class="empty">Belum ada order untuk teknisi ini.</p>';
-}
-function openOrders(tid){
-  S.ordersOpen=tid; renderOrdersDialog();
-  const d=$('orders-dlg');
-  if(typeof d.showModal==='function'){ if(!d.open) d.showModal(); } else d.setAttribute('open','');
-}
-function closeOrders(){
-  const d=$('orders-dlg');
-  if(typeof d.close==='function'){ if(d.open) d.close(); } else d.removeAttribute('open');
-  S.ordersOpen=null;
 }
 function renderTugas(){
   const out=$('out'), rows=S.dayRows, T=techs(), avail=availTechs();
@@ -1200,7 +1167,7 @@ function renderTugas(){
     h+='<div class="card"><h2>Belum ada order</h2><p class="hint">'+(S.cfg.api
       ?'Order yang diinput ke spreadsheet akan muncul di sini secara otomatis.'
       :'Sambungkan spreadsheet lewat tombol di kanan atas. Order yang diinput ke spreadsheet akan muncul di sini secara otomatis.')+'</p></div>';
-    out.innerHTML=h; renderOrdersDialog(); return;
+    out.innerHTML=h; return;
   }
   const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
   h+='<div class="card"><h2>'+rows.length+' order, '+avail.length+' teknisi hadir</h2>'
@@ -1225,7 +1192,7 @@ function renderTugas(){
         return '<li class="stop"><span class="seq">R</span><div><div><b>'+esc(m.nama||'Tanpa nama')+'</b>'+chipsOf(m)+'</div>'
           +'<div class="addr">'+esc(m.alamat)+'</div><div class="meta">'+esc(meta)+(m.telp?' &nbsp;|&nbsp; '+esc(m.telp):'')+'</div>'
           +'<div class="rest">'+esc(m.reschedNote)+'</div></div>'
-          +'<div class="acts">'+reschedWaBtn(m)+'<button class="btn ghost small" data-act="unresched" data-key="'+esc(m.key)+'" type="button">Kembalikan</button></div>'
+          +'<div class="acts"><button class="btn ghost small" data-act="unresched" data-key="'+esc(m.key)+'" type="button">Kembalikan</button></div>'
           +'</li>';
       }).join('')+'</ol></section>';
   }
@@ -1235,7 +1202,6 @@ function renderTugas(){
       +'<p class="hint">Order yang tadinya dipegang teknisi ini sudah dipindah otomatis ke teknisi lain.</p></section>';
   }
   out.innerHTML=h;
-  renderOrdersDialog();
 }
 
 function hull(pts){
@@ -1448,13 +1414,6 @@ function waText(t,part){
   });
   return s.trim();
 }
-// Tombol follow up WA ke customer untuk order yang direschedule. Kosong bila nomornya tidak ada.
-function reschedWaBtn(m){
-  const num=waNumber(m.telp); if(!num) return '';
-  const teks='Halo '+(m.nama||'')+', mohon maaf jadwal kunjungan servis pada '+fmtDate(S.date)+' perlu dijadwalkan ulang. Kapan waktu yang pas untuk kunjungan berikutnya?';
-  return '<a class="btn ghost small" href="'+waLink(num,teks)+'" target="_blank" rel="noopener">Follow up WA</a>';
-}
-
 // Tandai order tidak bisa dikerjakan: tulis ke kolom Teknisi di spreadsheet.
 function tulisReschedule(r,nilai,pesanOk){
   toast('Menyimpan ke spreadsheet...');
@@ -1505,8 +1464,8 @@ function renderIfChanged(){ if(sigNow()!==S.lastSig) renderAll(); }
 document.querySelector('.tabs').addEventListener('click',function(e){
   const b=e.target.closest('button[data-tab]'); if(b) setTab(b.getAttribute('data-tab'));
 });
-// Dipakai bersama oleh daftar utama (#out) dan popup daftar order (#orders-list),
-// supaya dropdown teknisi dan tombol Reschedule bekerja sama di kedua tempat.
+// Dipakai untuk daftar di tab Penugasan, supaya dropdown teknisi dan tombol
+// Reschedule bekerja di daftar order tiap teknisi maupun daftar belum dapat teknisi.
 function onTugasChange(e){
   const el=e.target;
   if(el.classList&&el.classList.contains('mv')){ const v=el.value; if(v) moveJob(el.getAttribute('data-key'),v); }
@@ -1514,8 +1473,17 @@ function onTugasChange(e){
 function onTugasClick(e){
   const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
   const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
-  if(act==='show-orders') openOrders(tid);
-  else if(act==='wa'){ const t=techById(tid); if(t) copyText(waText(t),'Pesan untuk '+t.nama); }
+  if(act==='toggle-orders'){
+    if(S.expanded.has(tid)) S.expanded.delete(tid); else S.expanded.add(tid);
+    renderTugas();
+  }
+  else if(act==='wa'){
+    const t=techById(tid); if(!t) return;
+    const idx=parseInt(b.getAttribute('data-part')||'0',10);
+    const parts=waParts(t), part=parts[idx]||parts[0];
+    const label='Pesan untuk '+t.nama+(part&&part.total>1?(' (bagian '+part.idx+'/'+part.total+')'):'');
+    copyText(waText(t,part),label);
+  }
   else if(act==='off') toggleOff(tid,true);
   else if(act==='on') toggleOff(tid,false);
   else if(act==='undo') doUndo();
@@ -1541,11 +1509,7 @@ function onPetaClick(e){
 }
 $('out').addEventListener('change',onTugasChange);
 $('out').addEventListener('click',onTugasClick);
-$('orders-list').addEventListener('change',onTugasChange);
-$('orders-list').addEventListener('click',onTugasClick);
 $('p-peta').addEventListener('click',onPetaClick);
-$('orders-close').addEventListener('click',closeOrders);
-$('orders-dlg').addEventListener('click',function(e){ if(e.target===$('orders-dlg')) closeOrders(); });
 $('tlist').addEventListener('click',function(e){
   const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
   const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
