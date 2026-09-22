@@ -126,6 +126,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   <nav class="tabs" role="tablist" aria-label="Menu">
     <button role="tab" id="tab-tugas" data-tab="tugas" aria-selected="true" aria-controls="p-tugas">Penugasan</button>
     <button role="tab" id="tab-teknisi" data-tab="teknisi" aria-selected="false" aria-controls="p-teknisi">Teknisi</button>
+    <button role="tab" id="tab-peta" data-tab="peta" aria-selected="false" aria-controls="p-peta">Peta</button>
   </nav>
 
   <!-- PENUGASAN -->
@@ -161,6 +162,16 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         </div>
       </div>
     </details>
+  </section>
+
+  <!-- PETA -->
+  <section id="p-peta" role="tabpanel" aria-labelledby="tab-peta" hidden>
+    <div class="card">
+      <h2>Peta sebaran</h2>
+      <p class="hint">🏠 rumah teknisi, 📍 lokasi order. Warna cincin menandai teknisi yang menangani; order dengan cincin sama berarti dipegang teknisi yang sama dengan rumahnya. Ketuk sebuah titik untuk melihat detail.</p>
+    </div>
+    <div class="mapbox"><div id="map"></div><div class="info" id="info">Ketuk sebuah titik untuk melihat detail.</div></div>
+    <div id="peta-legend"></div>
   </section>
 </main>
 
@@ -688,7 +699,7 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='1.1';
+const APP_VERSION='1.0';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -698,15 +709,15 @@ function fmtDate(s){const p=s.split('-').map(Number);return new Date(p[0],p[1]-1
 function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 
 const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:',wabiz:'pt2:wabiz'};
-const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},waBiz:false,local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
+const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
   rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false,
-  force:new Set(),fromSheet:0,wbToast:false,ordersOpen:null,failCount:0};
+  force:new Set(),fromSheet:0,wbToast:false,ordersOpen:null,failCount:0,waBiz:false};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
-// Pengaturan: link web app Apps Script + preferensi WhatsApp Business (per perangkat).
+// Pengaturan link Apps Script, plus pilihan buka lewat WhatsApp Business (khusus perangkat ini).
 function loadCfg(){
   const s=lsGet(LS.cfg,null);
   S.cfg={api:String((s&&s.api)||REPO_CONFIG.api||'').trim()};
@@ -757,13 +768,13 @@ function closeCfg(){
 function whenIdle(fn){ if(!S.busy){ fn(); return; } setTimeout(function(){ whenIdle(fn); },300); }
 function saveSettings(){
   const u=$('s-api').value.trim(), err=$('cfg-err');
+  S.waBiz=$('s-wabiz').checked; lsSet(LS.wabiz,S.waBiz);
   const bad=function(t){ err.textContent=t; err.hidden=false; };
   if(u){
     if(!/^https:\/\/script\.google\.com\//i.test(u)){ bad('Link harus dari Apps Script, berawalan https://script.google.com/ dan berakhiran /exec.'); return; }
     if(!/\/exec(\?.*)?$/i.test(u)){ bad('Link harus berakhiran /exec (URL dari Deploy, Web app), bukan /dev.'); return; }
   }
   err.hidden=true;
-  S.waBiz=$('s-wabiz').checked; lsSet(LS.wabiz,S.waBiz);
   S.cfg.api=u; saveCfg(); restartTimer();
   S.lastFetch=null; S.error=''; S.syncErr=''; S.rev=0; S.pushed='';
   if(!u){
@@ -1103,35 +1114,23 @@ function waNumber(telp){
   else if(d.slice(0,2)!=='62') d='62'+d;
   return d;
 }
-// Tautan kirim WA. Bila diaktifkan di Pengaturan, buka lewat WhatsApp Business (Android/Chrome);
-// kalau tidak terpasang, otomatis jatuh ke wa.me. Bila dimatikan, buka lewat WhatsApp biasa
-// dengan cara yang sama (intent eksplisit), supaya pilihannya benar-benar berlaku dan tidak
-// tergantung aplikasi WA mana yang diset sebagai default handler di perangkat.
+function isAndroid(){ return /Android/i.test((typeof navigator!=='undefined'&&navigator.userAgent)||''); }
+// Tautan kirim WA. Bila diaktifkan di Pengaturan dan perangkatnya Android, coba buka lewat
+// WhatsApp Business dulu; kalau tidak terpasang atau bukan Android, otomatis jatuh ke wa.me
+// (WhatsApp biasa/web).
 function waLink(num,text){
   const wa='https://wa.me/'+num+'?text='+encodeURIComponent(text);
-  if(!/Android/i.test(navigator.userAgent||'')) return wa;
-  const pkg=S.waBiz?'com.whatsapp.w4b':'com.whatsapp';
+  if(!S.waBiz||!isAndroid()) return wa;
   return 'intent://send?phone='+num+'&text='+encodeURIComponent(text)
-    +'#Intent;scheme=whatsapp;package='+pkg+';browser_fallback_url='+encodeURIComponent(wa)+';end';
+    +'#Intent;scheme=whatsapp;package=com.whatsapp.w4b;S.browser_fallback_url='+encodeURIComponent(wa)+';end';
 }
-// Batas perkiraan panjang teks per pesan WA. Pemotongan dihitung dari perkiraan panjang
-// karakter tiap order (alamat, catatan, dsb bisa jauh lebih panjang dari yang lain), bukan
-// dari jumlah order tetap, supaya pesan tidak terpotong di tengah saat alamatnya panjang.
-const WA_MAXCHARS=1200;
-function waEstLen(m){
-  return 60+String(m.nama||'').length+String(m.telp||'').length+String(m.alamat||'').length
-    +String(m.kec||'').length+String(m.kota||'').length+String(m.prov||'').length+String(m.note||'').length;
-}
+// Jumlah order maksimum dalam satu pesan WA, supaya pesan tidak terlalu panjang.
+// Kalau order teknisi lebih dari ini, pesan otomatis dipecah jadi beberapa tombol kirim berurutan.
+const WA_CHUNK=15;
 function waParts(t){
   const mem=orderRoute(membersOf(t.id),t);
-  const parts=[]; let cur=[], len=0;
-  mem.forEach(function(m){
-    const est=waEstLen(m);
-    if(cur.length&&(len+est>WA_MAXCHARS)){ parts.push(cur); cur=[]; len=0; }
-    cur.push(m); len+=est;
-  });
-  if(cur.length) parts.push(cur);
-  if(parts.length<=1) return [{list:mem,idx:1,total:1}];
+  if(mem.length<=WA_CHUNK) return [{list:mem,idx:1,total:1}];
+  const parts=[]; for(let i=0;i<mem.length;i+=WA_CHUNK) parts.push(mem.slice(i,i+WA_CHUNK));
   return parts.map(function(list,i){return {list:list,idx:i+1,total:parts.length};});
 }
 function cardHTML(t){
@@ -1212,7 +1211,6 @@ function renderTugas(){
     h+='<p class="notice">'+unassigned.length+' order belum dapat teknisi. '+(eligTechs().length?'Lokasinya belum terbaca, pilih teknisinya secara manual.':'Belum ada teknisi hadir yang domisilinya terbaca.')+'</p>';
   }
   if(rows.length){
-    h+='<div class="mapbox"><div id="map"></div><div class="info" id="info">Ketuk sebuah titik untuk melihat detail. Kotak kecil adalah rumah teknisi.</div></div>';
     avail.forEach(function(t){h+=cardHTML(t);});
   }
   if(unassigned.length){
@@ -1237,7 +1235,6 @@ function renderTugas(){
       +'<p class="hint">Order yang tadinya dipegang teknisi ini sudah dipindah otomatis ke teknisi lain.</p></section>';
   }
   out.innerHTML=h;
-  renderMap();
   renderOrdersDialog();
 }
 
@@ -1254,7 +1251,7 @@ function renderMap(){
   const jobs=S.dayRows.filter(function(r){return r.lat!=null;});
   const homes=availTechs().filter(function(t){return t.lat!=null;});
   const pts=jobs.concat(homes);
-  if(!pts.length){box.innerHTML='';return;}
+  if(!pts.length){box.innerHTML=''; const lg=$('peta-legend'); if(lg) lg.innerHTML=''; return;}
   const W=360,H=250,pad2=24;
   let minLa=Infinity,maxLa=-Infinity,minLn=Infinity,maxLn=-Infinity;
   pts.forEach(function(p){minLa=Math.min(minLa,p.lat);maxLa=Math.max(maxLa,p.lat);minLn=Math.min(minLn,p.lng);maxLn=Math.max(maxLn,p.lng);});
@@ -1288,14 +1285,25 @@ function renderMap(){
   });
   homes.forEach(function(t){
     const q=proj(t);
-    svg+='<rect x="'+(q.x-5).toFixed(1)+'" y="'+(q.y-5).toFixed(1)+'" width="10" height="10" rx="2" fill="'+t.color+'" stroke="var(--surface)" stroke-width="2"><title>Rumah '+esc(t.nama)+'</title></rect>';
+    svg+='<g class="pt" data-tid="'+esc(t.id)+'"><circle cx="'+q.x.toFixed(1)+'" cy="'+q.y.toFixed(1)+'" r="11" fill="var(--surface)" stroke="'+t.color+'" stroke-width="3"/>'
+      +'<text x="'+q.x.toFixed(1)+'" y="'+q.y.toFixed(1)+'" font-size="13" text-anchor="middle" dominant-baseline="central" style="cursor:pointer">\uD83C\uDFE0</text>'
+      +'<title>Rumah '+esc(t.nama)+'</title></g>';
   });
   jobs.forEach(function(m){
     const t=techById(S.day.assign[m.key]); const col=t?t.color:'#999';
-    svg+='<circle class="pt" data-key="'+esc(m.key)+'" cx="'+pos[m.key].x.toFixed(1)+'" cy="'+pos[m.key].y.toFixed(1)+'" r="6" fill="'+col+'" stroke="var(--surface)" stroke-width="2" style="cursor:pointer"><title>'+esc(m.nama)+'</title></circle>';
+    const p=pos[m.key];
+    svg+='<g class="pt" data-key="'+esc(m.key)+'" style="cursor:pointer"><circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="10" fill="var(--surface)" stroke="'+col+'" stroke-width="3"/>'
+      +'<text x="'+p.x.toFixed(1)+'" y="'+p.y.toFixed(1)+'" font-size="11" text-anchor="middle" dominant-baseline="central">\uD83D\uDCCD</text>'
+      +'<title>'+esc(m.nama)+(t?' | '+esc(t.nama):'')+'</title></g>';
   });
-  svg+='</svg><div class="legend">'+availTechs().map(function(t){return '<span style="--tc:'+t.color+'"><i></i>'+esc(t.nama)+' ('+membersOf(t.id).length+')</span>';}).join('')+'</div>';
+  svg+='</svg>';
   box.innerHTML=svg;
+  const legendEl=$('peta-legend');
+  if(legendEl){
+    const un=jobs.filter(function(m){return !techById(S.day.assign[m.key]);}).length;
+    legendEl.innerHTML='<div class="legend">'+availTechs().map(function(t){return '<span style="--tc:'+t.color+'"><i></i>'+esc(t.nama)+' ('+membersOf(t.id).length+')</span>';}).join('')
+      +(un?'<span style="--tc:#999"><i></i>Belum dapat teknisi ('+un+')</span>':'')+'</div>';
+  }
 }
 
 // ----- Render: Teknisi -----
@@ -1476,12 +1484,12 @@ function doUnresched(key){
 // ----- Tab -----
 function setTab(name){
   S.tab=name;
-  ['tugas','teknisi'].forEach(function(n){
+  ['tugas','teknisi','peta'].forEach(function(n){
     $('p-'+n).hidden=(n!==name);
     $('tab-'+n).setAttribute('aria-selected',n===name?'true':'false');
   });
 }
-function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); renderConn(); }
+function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); renderMap(); renderConn(); }
 // Bacaan otomatis hanya menggambar ulang bila isinya berubah, supaya layar tidak berkedip.
 function sigNow(){
   return JSON.stringify([S.date,
@@ -1504,12 +1512,6 @@ function onTugasChange(e){
   if(el.classList&&el.classList.contains('mv')){ const v=el.value; if(v) moveJob(el.getAttribute('data-key'),v); }
 }
 function onTugasClick(e){
-  const pt=e.target.closest&&e.target.closest('circle.pt');
-  if(pt){
-    const m=S.dayRows.find(function(r){return r.key===pt.getAttribute('data-key');}); const t=m&&techById(S.day.assign[m.key]);
-    if(m) $('info').textContent=(m.nama||'Tanpa nama')+', '+[m.kec,m.kota].filter(Boolean).join(', ')+(t?' | '+t.nama:'');
-    return;
-  }
   const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
   const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
   if(act==='show-orders') openOrders(tid);
@@ -1525,10 +1527,23 @@ function onTugasClick(e){
   }
   else if(act==='unresched') doUnresched(b.getAttribute('data-key'));
 }
+// Ketuk titik di tab Peta (rumah teknisi atau lokasi order) untuk melihat detailnya.
+function onPetaClick(e){
+  const pt=e.target.closest&&e.target.closest('.pt'); if(!pt) return;
+  const key=pt.getAttribute('data-key');
+  if(key){
+    const m=S.dayRows.find(function(r){return r.key===key;}); const t=m&&techById(S.day.assign[m.key]);
+    if(m) $('info').textContent=(m.nama||'Tanpa nama')+', '+[m.kec,m.kota].filter(Boolean).join(', ')+(t?' | '+t.nama:'');
+    return;
+  }
+  const tid=pt.getAttribute('data-tid'), t=tid&&techById(tid);
+  if(t) $('info').textContent='Rumah '+t.nama+', '+[t.kec,t.kota].filter(Boolean).join(', ');
+}
 $('out').addEventListener('change',onTugasChange);
 $('out').addEventListener('click',onTugasClick);
 $('orders-list').addEventListener('change',onTugasChange);
 $('orders-list').addEventListener('click',onTugasClick);
+$('p-peta').addEventListener('click',onPetaClick);
 $('orders-close').addEventListener('click',closeOrders);
 $('orders-dlg').addEventListener('click',function(e){ if(e.target===$('orders-dlg')) closeOrders(); });
 $('tlist').addEventListener('click',function(e){
