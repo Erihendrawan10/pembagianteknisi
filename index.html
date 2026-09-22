@@ -74,6 +74,8 @@ input[type=number],input[type=text],input[type=date],input[type=url],select{font
 .tech{border-left:6px solid var(--tc);padding-top:12px}
 .thead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-bottom:4px}
 .tname{font-weight:700;font-size:18px;flex:1 1 140px;min-width:0;margin:0}
+button.tname{background:transparent;border:0;padding:0;text-align:left;font-family:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--muted);text-underline-offset:3px}
+button.tname:hover,button.tname:focus-visible{text-decoration-color:currentColor}
 .badge{font-weight:700;font-variant-numeric:tabular-nums;background:var(--soft);border-radius:999px;padding:3px 10px;font-size:14px}
 .badge.over{background:var(--warn-bg);color:var(--warn)}
 .tmeta{font-size:13px;color:var(--muted);margin:0 0 6px}
@@ -201,6 +203,13 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       </ul>
     </details>
     <p class="ver ver-t" style="margin-top:12px"></p>
+  </div>
+</dialog>
+<dialog id="orders-dlg" aria-labelledby="orders-title">
+  <div class="dlg-body" id="orders-body">
+    <h2 id="orders-title">Teknisi</h2>
+    <div id="orders-list"></div>
+    <div class="row"><button class="btn ghost" id="orders-close" type="button">Tutup</button></div>
   </div>
 </dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -415,9 +424,42 @@ function withGeo(t){
   const gc=geocode({alamat:t.alamat,kec:t.kec,kota:t.kota,prov:t.prov,note:'',raw:t.koord||''});
   return Object.assign({},t,{lat:gc.lat,lng:gc.lng,level:gc.level});
 }
+// Jarak sunting sederhana, dipakai untuk menoleransi salah ketik nama teknisi.
+function levenshtein(a,b){
+  const m=a.length,n=b.length;
+  if(!m) return n; if(!n) return m;
+  const dp=new Array(n+1); for(let j=0;j<=n;j++) dp[j]=j;
+  for(let i=1;i<=m;i++){
+    let prev=dp[0]; dp[0]=i;
+    for(let j=1;j<=n;j++){
+      const tmp=dp[j];
+      dp[j]=Math.min(dp[j]+1,dp[j-1]+1,prev+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+      prev=tmp;
+    }
+  }
+  return dp[n];
+}
+// Cocokkan teks (isi kolom Teknisi atau catatan "minta teknisi ...") ke salah satu teknisi,
+// termasuk bila salah ketik (mis. "ARIPIN" tetap dikenali sebagai Arifin).
 function matchTech(pin,list){
-  if(!pin) return null; const p=norm(pin);
-  return list.find(function(t){return norm(t.nama)===p;})||list.find(function(t){return norm(String(t.nama).split(/\s+/)[0])===p;})||null;
+  if(!pin) return null; const p=norm(pin); if(!p) return null;
+  let hit=list.find(function(t){return norm(t.nama)===p;});
+  if(hit) return hit;
+  hit=list.find(function(t){return norm(String(t.nama).split(/\s+/)[0])===p;});
+  if(hit) return hit;
+  hit=list.find(function(t){const tn=norm(t.nama); return tn.length>=3&&(p.indexOf(tn)>=0||tn.indexOf(p)>=0);});
+  if(hit) return hit;
+  hit=list.find(function(t){const fn=norm(String(t.nama).split(/\s+/)[0]); return fn.length>=3&&(p.indexOf(fn)>=0||fn.indexOf(p)>=0);});
+  if(hit) return hit;
+  let best=null,bestD=Infinity;
+  list.forEach(function(t){
+    const fn=norm(String(t.nama).split(/\s+/)[0]);
+    if(!fn) return;
+    const d=levenshtein(p,fn);
+    const tol=fn.length<=4?1:(fn.length<=7?2:3);
+    if(d<=tol&&d<bestD){bestD=d;best=t;}
+  });
+  return best;
 }
 
 function hourKey(m){ if(m.jam==null) return null; return m.jam<7?m.jam+12:m.jam; }
@@ -657,7 +699,7 @@ const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:'};
 const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
   rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false,
-  force:new Set(),fromSheet:0,wbToast:false};
+  force:new Set(),fromSheet:0,wbToast:false,ordersOpen:null,failCount:0};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -920,16 +962,26 @@ function readJson(r){
     return j;
   });
 }
+// Batasi waktu tunggu tiap permintaan, supaya sambungan yang lambat tidak menggantung lama.
+function fetchTimeout(url,opt,ms){
+  const ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const t=ctrl?setTimeout(function(){ctrl.abort();},ms||20000):null;
+  const o=Object.assign({},opt); if(ctrl) o.signal=ctrl.signal;
+  return fetch(url,o).then(function(r){if(t)clearTimeout(t);return r;},function(e){
+    if(t)clearTimeout(t);
+    throw (e&&e.name==='AbortError')?new Error('spreadsheet tidak merespons, coba lagi'):e;
+  });
+}
 function apiGet(params){
-  return fetch(apiUrl(params),{cache:'no-store',redirect:'follow'}).then(readJson);
+  return fetchTimeout(apiUrl(params),{cache:'no-store',redirect:'follow'},20000).then(readJson);
 }
 function apiPost(payload){
-  return fetch(String(S.cfg.api||'').trim(),{
+  return fetchTimeout(String(S.cfg.api||'').trim(),{
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(payload),
     redirect:'follow'
-  }).then(readJson);
+  },20000).then(readJson);
 }
 function refresh(byUser){
   if(S.busy) return Promise.resolve();
@@ -965,15 +1017,20 @@ function refreshApi(){
     S.date=d; S.rev=0; S.pushed='';
     return apiGet({aksi:'state',tanggal:d}).then(function(k){ applyServerState(d,k); });
   }).then(function(){
-    if(!S.stale){ S.lastFetch=new Date(); S.error=''; S.syncErr=''; }
+    if(!S.stale){ S.lastFetch=new Date(); S.error=''; S.syncErr=''; S.failCount=0; }
   }).catch(function(e){
-    S.error='Gagal menyambung ke spreadsheet: '+(e&&e.message?e.message:'periksa koneksi')+'. Periksa link Apps Script di tombol pengaturan kanan atas.';
+    S.failCount=(S.failCount||0)+1;
+    const pesan='Gagal menyambung ke spreadsheet: '+(e&&e.message?e.message:'periksa koneksi')+'. Periksa link Apps Script di tombol pengaturan kanan atas.';
+    // Sekali gagal (mis. jaringan sempat putus atau Apps Script lambat bangun) tidak langsung
+    // ditampilkan merah; baru dianggap benar-benar terputus setelah gagal dua kali berturutan.
+    S.error=(S.failCount>=2||!S.lastFetch)?pesan:'';
   }).then(function(){
     S.busy=false;
     const added=sync(); renderIfChanged(); showStatus();
     notifySync(added);
     // Ada perubahan lokal saat membaca: hasil bacaan sudah usang, baca ulang sebentar lagi.
     if(S.stale){ S.stale=false; setTimeout(function(){ refresh(false); },1500); }
+    else if(S.failCount===1&&S.lastFetch){ setTimeout(function(){ if(!document.hidden) refresh(false); },4000); }
   });
 }
 function showStatus(){
@@ -1034,6 +1091,14 @@ function stopHTML(m,i,tid){
     +'<button class="btn '+(rsArmed?'danger':'ghost')+' small" data-act="resched" data-key="'+esc(m.key)+'" type="button">'+(rsArmed?'Yakin reschedule?':'Reschedule')+'</button>'
     +'</div></li>';
 }
+// Ubah nomor telepon jadi format wa.me (62xxxxxxxxxx). Kosong bila tidak ada nomor.
+function waNumber(telp){
+  let d=String(telp||'').replace(/\D/g,'');
+  if(!d) return '';
+  if(d.charAt(0)==='0') d='62'+d.slice(1);
+  else if(d.slice(0,2)!=='62') d='62'+d;
+  return d;
+}
 function cardHTML(t){
   const mem=membersOf(t.id), ordered=orderRoute(mem,t);
   const span=maxPair(mem);
@@ -1041,21 +1106,48 @@ function cardHTML(t){
   const warns=[];
   if(span>25) warns.push('Jarak antar order sampai '+Math.round(span)+' km, cek lagi pembagiannya.');
   const home=[t.kec,t.kota].filter(Boolean).join(', ');
+  const namaHTML=mem.length
+    ? '<button type="button" class="tname" data-act="show-orders" data-tid="'+esc(t.id)+'">'+esc(t.nama)+'</button>'
+    : '<h3 class="tname">'+esc(t.nama)+'</h3>';
   let h='<section class="card tech" style="--tc:'+t.color+'">'
-    +'<div class="thead"><h3 class="tname">'+esc(t.nama)+'</h3><span class="badge">'+mem.length+' order</span></div>'
-    +'<p class="tmeta">Rumah di '+esc(home||'-')+(mem.length&&far?', order terjauh sekitar '+Math.round(far)+' km dari rumah':'')+'</p>'
+    +'<div class="thead">'+namaHTML+'<span class="badge">'+mem.length+' order</span></div>'
+    +'<p class="tmeta">Rumah di '+esc(home||'-')+(mem.length&&far?', order terjauh sekitar '+Math.round(far)+' km dari rumah':'')+(mem.length?', ketuk nama untuk lihat daftar order':'')+'</p>'
     +warns.map(function(w){return '<p class="notice">'+esc(w)+'</p>';}).join('');
-  if(mem.length){
-    h+='<ol class="stops">'+ordered.map(function(m,i){return stopHTML(m,i,t.id);}).join('')+'</ol>';
-  } else h+='<p class="empty">Belum ada order untuk teknisi ini.</p>';
+  if(!mem.length) h+='<p class="empty">Belum ada order untuk teknisi ini.</p>';
   h+='<div class="tfoot">';
   if(mem.length){
     const url='https://www.google.com/maps/dir/'+[homeQuery(t)].concat(ordered.map(mapsQuery)).map(encodeURIComponent).join('/');
-    h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" type="button">Salin pesan untuk teknisi</button>'
-      +'<a class="btn ghost small" href="'+url+'" target="_blank" rel="noopener">Rute di Maps</a>';
+    const num=waNumber(t.telp);
+    if(num){
+      h+='<a class="btn ghost small" href="https://wa.me/'+num+'?text='+encodeURIComponent(waText(t))+'" target="_blank" rel="noopener">Kirim ke WA teknisi</a>';
+    } else {
+      h+='<button class="btn ghost small" data-act="wa" data-tid="'+esc(t.id)+'" type="button">Salin pesan (no. WA belum diisi)</button>';
+    }
+    h+='<a class="btn ghost small" href="'+url+'" target="_blank" rel="noopener">Rute di Maps</a>';
   }
   h+='<button class="btn ghost small" data-act="off" data-tid="'+esc(t.id)+'" type="button">Berhalangan</button></div></section>';
   return h;
+}
+// Popup daftar order sebuah teknisi, dibuka lewat tombol nama.
+function renderOrdersDialog(){
+  const tid=S.ordersOpen; if(!tid) return;
+  const t=techById(tid);
+  if(!t||isOff(tid)){ closeOrders(); return; }
+  const mem=membersOf(tid), ordered=orderRoute(mem,t);
+  $('orders-title').textContent=t.nama+' ('+mem.length+' order)';
+  $('orders-list').innerHTML=mem.length
+    ? '<ol class="stops">'+ordered.map(function(m,i){return stopHTML(m,i,t.id);}).join('')+'</ol>'
+    : '<p class="empty">Belum ada order untuk teknisi ini.</p>';
+}
+function openOrders(tid){
+  S.ordersOpen=tid; renderOrdersDialog();
+  const d=$('orders-dlg');
+  if(typeof d.showModal==='function'){ if(!d.open) d.showModal(); } else d.setAttribute('open','');
+}
+function closeOrders(){
+  const d=$('orders-dlg');
+  if(typeof d.close==='function'){ if(d.open) d.close(); } else d.removeAttribute('open');
+  S.ordersOpen=null;
 }
 function renderTugas(){
   const out=$('out'), rows=S.dayRows, T=techs(), avail=availTechs();
@@ -1071,7 +1163,7 @@ function renderTugas(){
     h+='<div class="card"><h2>Belum ada order</h2><p class="hint">'+(S.cfg.api
       ?'Order yang diinput ke spreadsheet akan muncul di sini secara otomatis.'
       :'Sambungkan spreadsheet lewat tombol di kanan atas. Order yang diinput ke spreadsheet akan muncul di sini secara otomatis.')+'</p></div>';
-    out.innerHTML=h; return;
+    out.innerHTML=h; renderOrdersDialog(); return;
   }
   const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
   h+='<div class="card"><h2>'+rows.length+' order, '+avail.length+' teknisi hadir</h2>'
@@ -1097,7 +1189,7 @@ function renderTugas(){
         return '<li class="stop"><span class="seq">R</span><div><div><b>'+esc(m.nama||'Tanpa nama')+'</b>'+chipsOf(m)+'</div>'
           +'<div class="addr">'+esc(m.alamat)+'</div><div class="meta">'+esc(meta)+(m.telp?' &nbsp;|&nbsp; '+esc(m.telp):'')+'</div>'
           +'<div class="rest">'+esc(m.reschedNote)+'</div></div>'
-          +'<div class="acts"><button class="btn ghost small" data-act="unresched" data-key="'+esc(m.key)+'" type="button">Kembalikan</button></div>'
+          +'<div class="acts">'+reschedWaBtn(m)+'<button class="btn ghost small" data-act="unresched" data-key="'+esc(m.key)+'" type="button">Kembalikan</button></div>'
           +'</li>';
       }).join('')+'</ol></section>';
   }
@@ -1108,6 +1200,7 @@ function renderTugas(){
   }
   out.innerHTML=h;
   renderMap();
+  renderOrdersDialog();
 }
 
 function hull(pts){
@@ -1307,6 +1400,12 @@ function waText(t){
   });
   return s.trim();
 }
+// Tombol follow up WA ke customer untuk order yang direschedule. Kosong bila nomornya tidak ada.
+function reschedWaBtn(m){
+  const num=waNumber(m.telp); if(!num) return '';
+  const teks='Halo '+(m.nama||'')+', mohon maaf jadwal kunjungan servis pada '+fmtDate(S.date)+' perlu dijadwalkan ulang. Kapan waktu yang pas untuk kunjungan berikutnya?';
+  return '<a class="btn ghost small" href="https://wa.me/'+num+'?text='+encodeURIComponent(teks)+'" target="_blank" rel="noopener">Follow up WA</a>';
+}
 
 // Tandai order tidak bisa dikerjakan: tulis ke kolom Teknisi di spreadsheet.
 function tulisReschedule(r,nilai,pesanOk){
@@ -1358,11 +1457,13 @@ function renderIfChanged(){ if(sigNow()!==S.lastSig) renderAll(); }
 document.querySelector('.tabs').addEventListener('click',function(e){
   const b=e.target.closest('button[data-tab]'); if(b) setTab(b.getAttribute('data-tab'));
 });
-$('out').addEventListener('change',function(e){
+// Dipakai bersama oleh daftar utama (#out) dan popup daftar order (#orders-list),
+// supaya dropdown teknisi dan tombol Reschedule bekerja sama di kedua tempat.
+function onTugasChange(e){
   const el=e.target;
   if(el.classList&&el.classList.contains('mv')){ const v=el.value; if(v) moveJob(el.getAttribute('data-key'),v); }
-});
-$('out').addEventListener('click',function(e){
+}
+function onTugasClick(e){
   const pt=e.target.closest&&e.target.closest('circle.pt');
   if(pt){
     const m=S.dayRows.find(function(r){return r.key===pt.getAttribute('data-key');}); const t=m&&techById(S.day.assign[m.key]);
@@ -1371,7 +1472,8 @@ $('out').addEventListener('click',function(e){
   }
   const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
   const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
-  if(act==='wa'){ const t=techById(tid); if(t) copyText(waText(t),'Pesan untuk '+t.nama); }
+  if(act==='show-orders') openOrders(tid);
+  else if(act==='wa'){ const t=techById(tid); if(t) copyText(waText(t),'Pesan untuk '+t.nama); }
   else if(act==='off') toggleOff(tid,true);
   else if(act==='on') toggleOff(tid,false);
   else if(act==='undo') doUndo();
@@ -1382,7 +1484,13 @@ $('out').addEventListener('click',function(e){
     else { S.armed='rs:'+key; renderTugas(); setTimeout(function(){ if(S.armed==='rs:'+key){ S.armed=''; renderTugas(); } },4000); }
   }
   else if(act==='unresched') doUnresched(b.getAttribute('data-key'));
-});
+}
+$('out').addEventListener('change',onTugasChange);
+$('out').addEventListener('click',onTugasClick);
+$('orders-list').addEventListener('change',onTugasChange);
+$('orders-list').addEventListener('click',onTugasClick);
+$('orders-close').addEventListener('click',closeOrders);
+$('orders-dlg').addEventListener('click',function(e){ if(e.target===$('orders-dlg')) closeOrders(); });
 $('tlist').addEventListener('click',function(e){
   const b=e.target.closest&&e.target.closest('button[data-act]'); if(!b) return;
   const act=b.getAttribute('data-act'), tid=b.getAttribute('data-tid');
