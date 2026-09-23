@@ -214,7 +214,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Bila dua orang mengubah hal yang sama bersamaan, yang menyimpan terakhir menang.</li>
         <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan tiap 1 menit.</li>
         <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada.</li>
-        <li>Tombol “Tandai dicek” menulis “Ya” di kolom Dicek pada sheet orderan (kolom ini otomatis ditambahkan bila belum ada). Bisa juga diisi langsung dari spreadsheet; status “Sudah dicek” di halaman ikut menyesuaikan pada pembacaan berikutnya.</li>
+        <li>Kolom “Dicek” pada sheet orderan menandai apakah order hari itu sudah dicek korlap. Cukup isi baris PERTAMA order hari itu (mis. “SUDAH”/“BELUM”, atau kosong berarti belum); nilai itu berlaku untuk semua order hari itu sekaligus, baik yang kolom Teknisinya masih kosong, berisi “Reschedule”, maupun sudah ada nama teknisinya. Statusnya ditampilkan di halaman, di bawah tanggal pada tab Penugasan.</li>
       </ul>
     </details>
     <p class="ver ver-t" style="margin-top:12px"></p>
@@ -704,7 +704,7 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='3.0';
+const APP_VERSION='2.0';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -1095,7 +1095,6 @@ function chipsOf(m){
   if(m.pin&&!m.pinMiss&&!m.pinKolom) chips+='<span class="chip">minta '+esc(m.pin)+'</span>';
   if(m.pinMiss) chips+='<span class="chip warn">teknisi '+esc(m.pin)+' tidak ada di daftar</span>';
   if(m.grpJml>1) chips+='<span class="chip">satu lokasi ('+m.grpJml+')</span>';
-  if(m.dicek) chips+='<span class="chip ok">Sudah dicek</span>';
   if(S.fresh.has(m.key)) chips+='<span class="chip new">baru</span>';
   return chips;
 }
@@ -1109,7 +1108,6 @@ function stopHTML(m,i,tid){
     +(m.rest?'<div class="rest">'+esc(m.rest)+'</div>':'')
     +'</div><div class="acts"><select class="mv" data-key="'+esc(m.key)+'" aria-label="Pindahkan '+esc(m.nama)+' ke teknisi lain">'
     +(tid?'':'<option value="">Pilih teknisi</option>')+moveOptions(tid)+'</select>'
-    +'<button class="btn ghost small" data-act="dicek" data-key="'+esc(m.key)+'" type="button">'+(m.dicek?'Batalkan tanda dicek':'Tandai dicek')+'</button>'
     +'<button class="btn '+(rsArmed?'danger':'ghost')+' small" data-act="resched" data-key="'+esc(m.key)+'" type="button">'+(rsArmed?'Yakin reschedule?':'Reschedule')+'</button>'
     +'</div></li>';
 }
@@ -1184,12 +1182,12 @@ function renderTugas(){
     out.innerHTML=h; return;
   }
   const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
-  const dicekYes=rows.filter(function(r){return r.dicek;}).length;
+  // Status "dicek" tidak per order: cukup baris PERTAMA order hari itu di kolom Dicek
+  // sheet yang diisi korlap (SUDAH/BELUM), lalu berlaku untuk semua order hari itu sekaligus.
+  const dicekStatus=rows.length?rows[0].dicek:false;
   h+='<div class="card"><h2>'+rows.length+' order, '+avail.length+' teknisi hadir</h2>'
     +'<p class="hint">'+esc(fmtDate(S.date))+'.'+(approx?' Jarak dihitung dari titik tengah kecamatan, jadi berupa perkiraan.':'')+'</p>'
-    +(rows.length?'<p class="hint">'+(dicekYes===rows.length
-        ?'Semua order sudah dicek korlap.'
-        :dicekYes+' dari '+rows.length+' order sudah dicek korlap, '+(rows.length-dicekYes)+' belum.')+'</p>':'')
+    +(rows.length?'<p class="hint">Order hari ini <b>'+(dicekStatus?'sudah':'belum')+'</b> dicek korlap.</p>':'')
     +'</div>';
   const noGeo=avail.filter(function(t){return t.lat==null;});
   if(noGeo.length) h+='<p class="notice">Domisili '+esc(noGeo.map(function(t){return t.nama;}).join(', '))+' belum terbaca (kecamatan tidak dikenali), jadi tidak ikut pembagian otomatis. Perbaiki di tab Teknisi atau pilih manual.</p>';
@@ -1458,22 +1456,6 @@ function doUnresched(key){
   if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
   tulisReschedule(r,'',(r.nama||'Order')+' dikembalikan ke jadwal');
 }
-// Tombol "Tandai dicek": ditulis ke kolom Dicek di spreadsheet, jadi semua perangkat melihat status yang sama.
-function doDicek(key){
-  const r=S.dayRows.find(function(x){return x.key===key;})||(S.reschedRows||[]).find(function(x){return x.key===key;});
-  if(!r) return;
-  if(perluSambung()) return;
-  if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
-  const next=!r.dicek;
-  toast('Menyimpan ke spreadsheet...');
-  apiPost({aksi:'tulisDicek',baris:r.baris,nama:r.nama,telp:r.telp,alamat:r.alamat,nilai:next?'Ya':''}).then(function(){
-    r.dicek=next; S.changedAt=Date.now();
-    toast(next?(r.nama||'Order')+' ditandai sudah dicek':(r.nama||'Order')+' ditandai belum dicek');
-    renderAll();
-    return refresh(false);
-  }).catch(function(e){ toast('Gagal menyimpan: '+(e&&e.message?e.message:'periksa koneksi')); });
-}
-
 // ----- Tab -----
 function setTab(name){
   S.tab=name;
@@ -1528,7 +1510,6 @@ function onTugasClick(e){
     else { S.armed='rs:'+key; renderTugas(); setTimeout(function(){ if(S.armed==='rs:'+key){ S.armed=''; renderTugas(); } },4000); }
   }
   else if(act==='unresched') doUnresched(b.getAttribute('data-key'));
-  else if(act==='dicek') doDicek(b.getAttribute('data-key'));
 }
 // Ketuk titik di tab Peta (rumah teknisi atau lokasi order) untuk melihat detailnya.
 function onPetaClick(e){
@@ -1585,7 +1566,7 @@ Array.prototype.forEach.call(document.querySelectorAll('.ver-t'),function(el){ e
 fillKota();
 sync(); renderAll(); restartTimer();
 if(S.cfg.api) refresh(false); else showStatus();
-if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,doDicek:doDicek,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
+if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
 })();
 </script>
 </body>
