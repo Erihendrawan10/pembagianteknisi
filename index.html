@@ -87,6 +87,7 @@ button.tname:hover,button.tname:focus-visible{text-decoration-color:currentColor
 .chip.time{background:var(--accent);color:var(--accent-ink)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)}
 .chip.new{background:var(--ok-bg);color:var(--ok)}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
 .addr{overflow-wrap:anywhere}
 .meta{font-size:13px;color:var(--muted)}
 .rest{font-size:13px;color:var(--muted);font-style:italic}
@@ -213,6 +214,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
         <li>Perubahan korlap (pindah order, teknisi berhalangan) tersimpan di sheet Penugasan, jadi semua perangkat melihat hasil yang sama. Bila dua orang mengubah hal yang sama bersamaan, yang menyimpan terakhir menang.</li>
         <li>Halaman membaca spreadsheet sendiri saat dibuka, saat kembali ke halaman ini, dan tiap 1 menit.</li>
         <li>Order baru yang masuk ke spreadsheet ditambahkan ke teknisi terdekat tanpa mengubah pembagian yang sudah ada.</li>
+        <li>Tombol “Tandai dicek” menulis “Ya” di kolom Dicek pada sheet orderan (kolom ini otomatis ditambahkan bila belum ada). Bisa juga diisi langsung dari spreadsheet; status “Sudah dicek” di halaman ikut menyesuaikan pada pembacaan berikutnya.</li>
       </ul>
     </details>
     <p class="ver ver-t" style="margin-top:12px"></p>
@@ -369,10 +371,18 @@ function parseNote(note){
   };
 }
 
+// Nilai kolom "Dicek" dianggap sudah dicek bila tidak kosong dan bukan kata negatif
+// (tidak/no/false/0/-/belum), supaya korlap juga bisa mengisinya langsung di spreadsheet
+// (mis. "Ya", "V", centang) selain lewat tombol di halaman.
+function isDicekTrue(v){
+  v=String(v==null?'':v).trim().toLowerCase();
+  if(!v) return false;
+  return !/^(tidak|no|false|0|-|belum)$/.test(v);
+}
 // Customer: {rows, hasDate}. nums = nomor baris sheet tiap baris aoa (opsional).
 function mapRows(aoa,nums){
   if(!aoa.length) return {rows:[],hasDate:false};
-  let start=0, dateIdx=-1, tekIdx=-1, idx={nama:0,telp:1,alamat:2,kec:3,kota:4,prov:5,note:6};
+  let start=0, dateIdx=-1, tekIdx=-1, dicekIdx=-1, idx={nama:0,telp:1,alamat:2,kec:3,kota:4,prov:5,note:6};
   const h=aoa[0].map(function(c){return String(c).toLowerCase().trim();});
   if(h.some(function(c){return /^(nama|name|customer|pelanggan)/.test(c);})&&h.some(function(c){return /alamat|address/.test(c);})){
     start=1;
@@ -380,8 +390,9 @@ function mapRows(aoa,nums){
     idx={nama:find(/^(nama|name|customer|pelanggan)/,0),telp:find(/telp|tlp|hp|phone|whatsapp|wa$|^wa|kontak/,1),alamat:find(/alamat|address/,2),kec:find(/kecamatan|^kec/,3),kota:find(/kota|kab/,4),prov:find(/provinsi|^prov/,5),note:find(/catatan|note|ket/,6)};
     dateIdx=h.findIndex(function(c){return /tanggal|^tgl|date|timestamp|^time|waktu/.test(c);});
     tekIdx=h.findIndex(function(c){return /^teknisi|petugas/.test(c);});
+    dicekIdx=h.findIndex(function(c){return /^(dicek|cek|checked)/.test(c);});
   }
-  const used=Object.keys(idx).map(function(k){return idx[k];}).concat(dateIdx,tekIdx);
+  const used=Object.keys(idx).map(function(k){return idx[k];}).concat(dateIdx,tekIdx,dicekIdx);
   const out=[], seen={};
   for(let i=start;i<aoa.length;i++){
     const c=aoa[i].map(function(x){return String(x==null?'':x).trim();});
@@ -397,6 +408,7 @@ function mapRows(aoa,nums){
     r.resched=false; r.reschedNote='';
     if(rm){ r.reschedNote=tekKolom; r.resched=!rm[1]||!r.date||rm[1]===r.date; }
     r.jam=pn.jam; r.jamText=pn.jamText; r.pin=rm?pn.pin:(tekKolom||pn.pin); r.pinKolom=!rm&&!!tekKolom; r.tekCell=tekKolom; r.toren=pn.toren; r.rest=pn.rest;
+    r.dicek=dicekIdx>=0?isDicekTrue(c[dicekIdx]):false;
     const gc=geocode(r); r.lat=gc.lat; r.lng=gc.lng; r.level=gc.level;
     let key=hash(norm(r.nama)+'|'+norm(r.alamat)+'|'+norm(r.telp)+'|'+r.date);
     if(seen[key]){ seen[key]++; key+='_'+seen[key]; } else seen[key]=1;
@@ -1083,6 +1095,7 @@ function chipsOf(m){
   if(m.pin&&!m.pinMiss&&!m.pinKolom) chips+='<span class="chip">minta '+esc(m.pin)+'</span>';
   if(m.pinMiss) chips+='<span class="chip warn">teknisi '+esc(m.pin)+' tidak ada di daftar</span>';
   if(m.grpJml>1) chips+='<span class="chip">satu lokasi ('+m.grpJml+')</span>';
+  if(m.dicek) chips+='<span class="chip ok">Sudah dicek</span>';
   if(S.fresh.has(m.key)) chips+='<span class="chip new">baru</span>';
   return chips;
 }
@@ -1096,6 +1109,7 @@ function stopHTML(m,i,tid){
     +(m.rest?'<div class="rest">'+esc(m.rest)+'</div>':'')
     +'</div><div class="acts"><select class="mv" data-key="'+esc(m.key)+'" aria-label="Pindahkan '+esc(m.nama)+' ke teknisi lain">'
     +(tid?'':'<option value="">Pilih teknisi</option>')+moveOptions(tid)+'</select>'
+    +'<button class="btn ghost small" data-act="dicek" data-key="'+esc(m.key)+'" type="button">'+(m.dicek?'Batalkan tanda dicek':'Tandai dicek')+'</button>'
     +'<button class="btn '+(rsArmed?'danger':'ghost')+' small" data-act="resched" data-key="'+esc(m.key)+'" type="button">'+(rsArmed?'Yakin reschedule?':'Reschedule')+'</button>'
     +'</div></li>';
 }
@@ -1439,6 +1453,21 @@ function doUnresched(key){
   if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
   tulisReschedule(r,'',(r.nama||'Order')+' dikembalikan ke jadwal');
 }
+// Tombol "Tandai dicek": ditulis ke kolom Dicek di spreadsheet, jadi semua perangkat melihat status yang sama.
+function doDicek(key){
+  const r=S.dayRows.find(function(x){return x.key===key;})||(S.reschedRows||[]).find(function(x){return x.key===key;});
+  if(!r) return;
+  if(perluSambung()) return;
+  if(!r.baris){ toast('Baris belum dikenali, tunggu data terbaru terbaca lalu coba lagi'); return; }
+  const next=!r.dicek;
+  toast('Menyimpan ke spreadsheet...');
+  apiPost({aksi:'tulisDicek',baris:r.baris,nama:r.nama,telp:r.telp,alamat:r.alamat,nilai:next?'Ya':''}).then(function(){
+    r.dicek=next; S.changedAt=Date.now();
+    toast(next?(r.nama||'Order')+' ditandai sudah dicek':(r.nama||'Order')+' ditandai belum dicek');
+    renderAll();
+    return refresh(false);
+  }).catch(function(e){ toast('Gagal menyimpan: '+(e&&e.message?e.message:'periksa koneksi')); });
+}
 
 // ----- Tab -----
 function setTab(name){
@@ -1452,7 +1481,7 @@ function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); renderM
 // Bacaan otomatis hanya menggambar ulang bila isinya berubah, supaya layar tidak berkedip.
 function sigNow(){
   return JSON.stringify([S.date,
-    S.dayRows.map(function(r){return [r.key,r.note,r.pin,r.baris,r.level];}),
+    S.dayRows.map(function(r){return [r.key,r.note,r.pin,r.baris,r.level,r.dicek];}),
     (S.reschedRows||[]).map(function(r){return [r.key,r.reschedNote];}),
     S.day.assign,S.day.off,
     techs().map(function(t){return [t.id,t.nama,t.telp,t.alamat,t.kec,t.kota,t.lat];}),
@@ -1494,6 +1523,7 @@ function onTugasClick(e){
     else { S.armed='rs:'+key; renderTugas(); setTimeout(function(){ if(S.armed==='rs:'+key){ S.armed=''; renderTugas(); } },4000); }
   }
   else if(act==='unresched') doUnresched(b.getAttribute('data-key'));
+  else if(act==='dicek') doDicek(b.getAttribute('data-key'));
 }
 // Ketuk titik di tab Peta (rumah teknisi atau lokasi order) untuk melihat detailnya.
 function onPetaClick(e){
@@ -1550,7 +1580,7 @@ Array.prototype.forEach.call(document.querySelectorAll('.ver-t'),function(el){ e
 fillKota();
 sync(); renderAll(); restartTimer();
 if(S.cfg.api) refresh(false); else showStatus();
-if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
+if(window.__PT_TEST) window.__PT_TEST.api={S:S,refresh:refresh,pushState:pushState,sync:sync,renderAll:renderAll,toggleOff:toggleOff,moveJob:moveJob,doUndo:doUndo,techs:techs,membersOf:membersOf,waText:waText,doResched:doResched,doUnresched:doUnresched,doDicek:doDicek,mapRows:mapRows,parseDelim:parseDelim,autoAssign:autoAssign,placeJobs:placeJobs,eligTechs:eligTechs};
 })();
 </script>
 </body>
