@@ -704,7 +704,7 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='2.0';
+const APP_VERSION='3.0';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -1184,8 +1184,13 @@ function renderTugas(){
     out.innerHTML=h; return;
   }
   const approx=rows.filter(function(r){return r.level==='kec'||r.level==='kota';}).length;
+  const dicekYes=rows.filter(function(r){return r.dicek;}).length;
   h+='<div class="card"><h2>'+rows.length+' order, '+avail.length+' teknisi hadir</h2>'
-    +'<p class="hint">'+esc(fmtDate(S.date))+'.'+(approx?' Jarak dihitung dari titik tengah kecamatan, jadi berupa perkiraan.':'')+'</p></div>';
+    +'<p class="hint">'+esc(fmtDate(S.date))+'.'+(approx?' Jarak dihitung dari titik tengah kecamatan, jadi berupa perkiraan.':'')+'</p>'
+    +(rows.length?'<p class="hint">'+(dicekYes===rows.length
+        ?'Semua order sudah dicek korlap.'
+        :dicekYes+' dari '+rows.length+' order sudah dicek korlap, '+(rows.length-dicekYes)+' belum.')+'</p>':'')
+    +'</div>';
   const noGeo=avail.filter(function(t){return t.lat==null;});
   if(noGeo.length) h+='<p class="notice">Domisili '+esc(noGeo.map(function(t){return t.nama;}).join(', '))+' belum terbaca (kecamatan tidak dikenali), jadi tidak ikut pembagian otomatis. Perbaiki di tab Teknisi atau pilih manual.</p>';
   if(unassigned.length){
