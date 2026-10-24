@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta name="application-name" content="Sistem Pembagian Orderan 2.0">
+<meta name="application-name" content="Sistem Pembagian Orderan 2.1">
 <title>Sistem Pembagian Orderan</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
 <style>
@@ -169,7 +169,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   <section id="p-peta" role="tabpanel" aria-labelledby="tab-peta" hidden>
     <div class="card">
       <h2>Peta sebaran</h2>
-      <p class="hint">🏠 rumah teknisi, 📍 lokasi order. Warna cincin menandai teknisi yang menangani; order dengan cincin sama berarti dipegang teknisi yang sama dengan rumahnya. Ketuk sebuah titik untuk melihat detail.</p>
+      <p class="hint">🏠 rumah teknisi, 📍 lokasi order. Warna cincin menandai teknisi yang menangani; order dengan cincin sama berarti dipegang teknisi yang sama dengan rumahnya. Titik dicari dari alamat lengkap; bila alamat tidak ditemukan, dipakai titik tengah kecamatan. Ketuk sebuah titik untuk melihat detail.</p>
     </div>
     <div class="mapbox"><div id="map"></div><div class="info" id="info">Ketuk sebuah titik untuk melihat detail.</div></div>
     <div id="peta-legend"></div>
@@ -204,9 +204,11 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
       <summary>Cara kerja dan batasannya</summary>
       <ul>
         <li>Tanggal yang tampil dipilih otomatis dari kolom Time: hari ini bila ada order, kalau tidak tanggal terdekat berikutnya.</li>
+        <li>Titik lokasi order dan rumah teknisi dicari dari alamat lengkap lewat Google Maps (oleh Apps Script), lalu disimpan di sheet Geocache supaya tiap alamat hanya dicari sekali. Tautan Google Maps atau koordinat di kolom alamat dipakai langsung. Kalau alamat tidak ditemukan atau hasilnya terlalu jauh dari kecamatannya, dipakai titik tengah kecamatan, dan order diberi tanda “titik kecamatan”.</li>
         <li>Tiap order dibagi ke teknisi yang rumahnya paling dekat, tanpa batas jumlah per teknisi. Jumlah antar teknisi bisa tidak sama, jadi korlap dapat memindahkannya lewat dropdown di tiap order.</li>
+        <li>Order bertitik akurat yang berdekatan (sekitar 2 km atau kurang) selalu disatukan ke satu teknisi, termasuk bila nama teknisi di spreadsheet sempat salah ketik atau salah pilih. Teknisi yang dipilih adalah yang paling dekat ke kelompok itu, dengan mempertimbangkan rumahnya dan order lain miliknya, lalu kolom Teknisi di spreadsheet ikut dikoreksi. Order yang dipindah korlap lewat dropdown, yang namanya diketik ulang di spreadsheet, atau yang punya catatan “minta teknisi ...” tidak diubah.</li>
         <li>Alamat yang lengkapnya mirip (nama perumahan, jalan, atau kelurahan yang sama) dianggap satu lokasi dan selalu jatuh ke teknisi yang sama. Kalau tidak ada kecocokan, barulah kecamatan yang dipakai.</li>
-        <li>Posisi kecamatan memakai titik tengahnya, jadi jarak yang tampil berupa perkiraan. Koordinat seperti -6.2345, 106.8123 di kolom alamat membuat posisinya tepat.</li>
+        <li>Posisi kecamatan memakai titik tengahnya, jadi jarak yang tampil berupa perkiraan bila alamat tidak ditemukan. Koordinat seperti -6.2345, 106.8123 di kolom alamat membuat posisinya tepat.</li>
         <li>Dropdown teknisi dan kolom Teknisi di spreadsheet saling mengikuti. Memindahkan order lewat dropdown langsung mengubah kolom Teknisi. Mengetik nama teknisi di kolom itu mengubah pembagian di halaman pada pembacaan berikutnya.</li>
         <li>Catatan seperti “minta teknisi Hendi” di kolom Note menempatkan order itu ke teknisi tersebut saat pertama dibagi.</li>
         <li>Catatan jam hanya dipakai untuk mengurutkan kunjungan. Jam yang sama tidak diperingatkan, biar teknisi yang berkoordinasi dengan customer.</li>
@@ -237,6 +239,11 @@ const REPO_CONFIG={
 };
 const COLORS=['#1F6FEB','#E4572E','#2E9E5B','#8E44AD','#C79A00','#C2185B','#00838F','#8D6E63','#546E7A','#7CB342'];
 const HOME_W=0.35;
+const NEAR_KM=2;      // dua titik akurat sedekat ini dianggap berdekatan
+const NEAR_SPAN=4;    // diameter maksimum satu kelompok titik berdekatan
+const MAX_KEC_KM=15, MAX_KOTA_KM=35; // hasil pencarian yang terlalu jauh dari kecamatan/kota dianggap salah
+const GEO_CHUNK=6;    // alamat yang dicari per permintaan ke Apps Script
+const GEO_CACHE={};   // kunci alamat -> {lat,lng,level}
 const KOTA_LIST=['Kota Tangerang','Kab. Tangerang','Kota Tangerang Selatan','Kota Jakarta Selatan','Kota Jakarta Barat','Kota Jakarta Pusat','Kota Jakarta Utara','Kota Jakarta Timur','Kota Depok','Kota Bekasi','Kab. Bekasi','Kota Bogor','Kabupaten Bogor'];
 
 // Titik tengah kecamatan (perkiraan): wilayah|Kecamatan,lat,lng;...
@@ -287,7 +294,8 @@ function regionOf(kota){
   return '';
 }
 
-// Hasil: {lat,lng,level} dengan level 'koord' | 'kec' | 'kota' | 'none'
+// Hasil: {lat,lng,level} dengan level 'koord' (koordinat/tautan Maps) | 'alamat' (hasil pencarian alamat, akurat)
+// | 'kel' (hasil pencarian setingkat kelurahan) | 'kec' | 'kota' | 'none'
 function geocode(r){
   const txt=[r.alamat,r.kec,r.kota,r.prov,r.note,r.raw].join(' ');
   const m=txt.match(/(-?\d{1,2}\.\d{3,})\s*[, ]\s*(\d{2,3}\.\d{3,})/);
@@ -295,6 +303,18 @@ function geocode(r){
     const la=parseFloat(m[1]), ln=parseFloat(m[2]);
     if(la>=-11&&la<=6&&ln>=95&&ln<=141) return {lat:la,lng:ln,level:'koord'};
   }
+  const kasar=geocodeKasar(r), gc=GEO_CACHE[geoKey(r)];
+  if(gc&&gc.lat!=null&&gc.level!=='gagal'){
+    let ok=true;
+    if(gc.level!=='koord'&&kasar.level==='kec') ok=dist(gc,kasar)<=MAX_KEC_KM;
+    else if(gc.level!=='koord'&&kasar.level==='kota') ok=dist(gc,kasar)<=MAX_KOTA_KM;
+    if(ok) return {lat:gc.lat,lng:gc.lng,level:gc.level};
+  }
+  return kasar;
+}
+function geoKey(r){ return 'g_'+hash(norm(r.alamat)+'|'+norm(r.kec)+'|'+norm(r.kota)); }
+function isPrecise(r){ return r.level==='koord'||r.level==='alamat'; }
+function geocodeKasar(r){
   const reg=regionOf(r.kota), k=norm(r.kec);
   const cands=BYNAME[k]||[];
   if(reg&&KEC[reg+'|'+k]){const v=KEC[reg+'|'+k]; return {lat:v.lat,lng:v.lng,level:'kec'};}
@@ -539,7 +559,7 @@ function addrTokens(r){
   return out;
 }
 function sameLocality(a,b){
-  const ka=a.level==='koord', kb=b.level==='koord';
+  const ka=isPrecise(a), kb=isPrecise(b);
   if(ka&&kb) return dist(a,b)<0.4;
   if(norm(a.kec)!==norm(b.kec)||regionOf(a.kota)!==regionOf(b.kota)) return false;
   let n=0, khas=false;
@@ -701,10 +721,49 @@ function placeJobs(jobs,techs,cap,assign,rowByKey){
   });
   return out;
 }
+
+// Kelompok order bertitik akurat yang berdekatan (jarak antar titik <= NEAR_KM, diameter <= NEAR_SPAN).
+function nearClusters(rows){
+  const pts=rows.filter(function(r){return isPrecise(r)&&r.lat!=null;});
+  const par=pts.map(function(_,i){return i;}), mem=pts.map(function(_,i){return [i];});
+  const find=function(i){while(par[i]!==i){par[i]=par[par[i]];i=par[i];}return i;};
+  const pairs=[];
+  for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){const d=dist(pts[i],pts[j]); if(d<=NEAR_KM) pairs.push([d,i,j]);}
+  pairs.sort(function(a,b){return a[0]-b[0];});
+  pairs.forEach(function(p){
+    const a=find(p[1]), b=find(p[2]); if(a===b) return;
+    for(let x=0;x<mem[a].length;x++) for(let y=0;y<mem[b].length;y++) if(dist(pts[mem[a][x]],pts[mem[b][y]])>NEAR_SPAN) return;
+    par[b]=a; mem[a]=mem[a].concat(mem[b]); mem[b]=[];
+  });
+  return mem.filter(function(m){return m.length>1;}).map(function(m){return m.map(function(i){return pts[i];});});
+}
+// Titik berdekatan yang terpecah ke teknisi berbeda disatukan ke satu teknisi. Teknisi dipilih dari
+// yang paling dekat ke kelompok itu, dengan mempertimbangkan rumahnya dan order lain miliknya.
+// fixed: {key:true} = order yang tidak boleh dipindah. Hasil: daftar key yang dipindah.
+function rapikanDekat(rows,techs,assign,fixed){
+  const moved=[];
+  nearClusters(rows).forEach(function(cl){
+    const inCl={}; cl.forEach(function(r){inCl[r.key]=1;});
+    const tids=[], fx=[];
+    cl.forEach(function(r){const t=assign[r.key]; if(!t) return; if(tids.indexOf(t)<0) tids.push(t); if(fixed[r.key]&&fx.indexOf(t)<0) fx.push(t);});
+    if(tids.length<2) return;
+    const free=cl.filter(function(r){return !fixed[r.key];}); if(!free.length) return;
+    const cand=fx.length?fx:tids, c=centroid(cl);
+    let best=cand[0], bd=Infinity;
+    cand.forEach(function(tid){
+      const t=techs.find(function(x){return x.id===tid;}); if(!t) return;
+      const others=rows.filter(function(r){return !inCl[r.key]&&assign[r.key]===tid;});
+      const d=dist(c,blendCenter(t,others));
+      if(d<bd){bd=d;best=tid;}
+    });
+    free.forEach(function(r){ if(assign[r.key]!==best){assign[r.key]=best; moved.push(r.key);} });
+  });
+  return moved;
+}
 /*LOGIC_END*/
 
 // ---------- UI ----------
-const APP_VERSION='2.0';
+const APP_VERSION='2.1';
 const AUTO_MIN=1; // baca ulang spreadsheet tiap 1 menit
 const $=function(id){return document.getElementById(id);};
 const esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
@@ -717,7 +776,7 @@ const LS={cfg:'pt2:cfg',roster:'pt2:roster',day:'pt2:day:',wabiz:'pt2:wabiz'};
 const S={tab:'tugas',cfg:{api:REPO_CONFIG.api||''},local:[],sheetRoster:[],techsC:null,rowsAll:[],hasDate:false,source:'',
   date:todayStr(),day:{assign:{},off:[],init:false},dayRows:[],fresh:new Set(),prevKeys:null,prevDate:'',lastFetch:null,error:'',busy:false,undo:null,armed:'',timer:null,
   rev:0,pushed:'',pushT:null,pushing:false,pushAgain:false,syncErr:'',saving:false,lastSig:'',changedAt:0,stale:false,wbT:null,wbBusy:false,wbAgain:false,
-  force:new Set(),fromSheet:0,wbToast:false,expanded:new Set(),failCount:0,waBiz:false};
+  force:new Set(),fromSheet:0,geoPending:0,geoRun:false,geoOff:false,geoMsg:'',merged:0,wbToast:false,expanded:new Set(),failCount:0,waBiz:false};
 
 function lsGet(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -781,7 +840,7 @@ function saveSettings(){
   }
   err.hidden=true;
   S.cfg.api=u; saveCfg(); restartTimer();
-  S.lastFetch=null; S.error=''; S.syncErr=''; S.rev=0; S.pushed='';
+  S.lastFetch=null; S.error=''; S.syncErr=''; S.rev=0; S.pushed=''; S.geoOff=false; S.geoMsg='';
   if(!u){
     S.sheetRoster=[]; S.rowsAll=[]; invalidateTechs();
     sync(); renderAll(); showStatus(); closeCfg(); toast('Sambungan dilepas');
@@ -810,7 +869,7 @@ function eligTechs(){return availTechs().filter(function(t){return t.lat!=null;}
 function saveLocalRoster(){lsSet(LS.roster,S.local);}
 
 // ----- Hari -----
-function loadDay(d){const v=lsGet(LS.day+d,null); return (v&&v.assign)?{assign:v.assign,off:v.off||[],init:!!v.init,cell:v.cell||{}}:{assign:{},off:[],init:false,cell:{}};}
+function loadDay(d){const v=lsGet(LS.day+d,null); return (v&&v.assign)?{assign:v.assign,off:v.off||[],init:!!v.init,cell:v.cell||{},lock:v.lock||{}}:{assign:{},off:[],init:false,cell:{},lock:{}};}
 function saveDay(){
   lsSet(LS.day+S.date,S.day);
   if(S.cfg.api&&JSON.stringify(S.day)!==S.pushed) schedulePush();
@@ -920,12 +979,18 @@ function sync(){
   const d=autoDate(); if(d!==S.date){ S.date=d; S.rev=0; S.pushed=''; }
   S.day=loadDay(S.date);
   const rows=prepRows(); S.dayRows=rows;
+  // Selama titik lokasi alamat masih dicari, pembagian ditunda supaya tidak dibagi berdasarkan titik kecamatan.
+  S.geoPending=(S.cfg.api&&!S.geoOff)?geoNeeds().length:0;
+  if(S.geoPending>0){ S.merged=0; S.fromSheet=0; return 0; }
   const byKey={}; rows.forEach(function(r){byKey[r.key]=r;});
   const avail=availTechs(), ids={}; avail.forEach(function(t){ids[t.id]=1;});
   const elig=eligTechs(), A=S.day.assign, D=S.day;
-  if(!D.cell) D.cell={};
+  if(!D.cell) D.cell={}; if(!D.lock) D.lock={};
   Object.keys(D.cell).forEach(function(k){ if(!byKey[k]) delete D.cell[k]; });
+  Object.keys(D.lock).forEach(function(k){ if(!byKey[k]) delete D.lock[k]; });
   Object.keys(A).forEach(function(k){ if(!byKey[k]||!ids[A[k]]) delete A[k]; });
+  // Order yang sudah punya teknisi sebelum sinkronisasi ini dianggap sudah mapan dan tidak dipindah penyatuan.
+  const known={}; Object.keys(A).forEach(function(k){known[k]=1;});
   // Nama teknisi di kolom Teknisi yang berubah dari yang terakhir dicatat aplikasi
   // berarti diubah langsung di spreadsheet: pembagian mengikuti spreadsheet.
   let chg=0;
@@ -933,7 +998,7 @@ function sync(){
     if(!r.pinKolom||!r.pinTech||!ids[r.pinTech]) return;
     const prev=D.cell[r.key];
     if(prev===undefined||norm(prev)!==norm(r.tekCell)){
-      if(prev!==undefined&&A[r.key]!==r.pinTech) chg++;
+      if(prev!==undefined){ D.lock[r.key]=1; if(A[r.key]!==r.pinTech) chg++; }
       A[r.key]=r.pinTech; D.cell[r.key]=r.tekCell;
     }
   });
@@ -950,12 +1015,62 @@ function sync(){
     });
     if(toPlace.length&&elig.length) Object.assign(A,placeJobs(buildItems(toPlace,Infinity),elig,Infinity,A,byKey));
   }
+  // Titik akurat yang berdekatan disatukan ke satu teknisi. Yang tidak dipindah: order mapan,
+  // yang dipindah korlap atau diketik ulang di spreadsheet, dan yang diminta customer lewat catatan.
+  const fixed={};
+  rows.forEach(function(r){ if(D.lock[r.key]||known[r.key]||(r.pin&&!r.pinKolom&&r.pinTech)) fixed[r.key]=true; });
+  S.merged=rapikanDekat(rows,elig,A,fixed).length;
   let added=0;
   if(S.prevKeys&&S.prevDate===S.date){ rows.forEach(function(r){ if(!S.prevKeys.has(r.key)){S.fresh.add(r.key);added++;} }); }
   else S.fresh=new Set();
   S.prevKeys=new Set(rows.map(function(r){return r.key;})); S.prevDate=S.date;
   saveDay();
   return added;
+}
+
+// ----- Titik lokasi akurat dari alamat (dicari Apps Script lewat Google Maps, disimpan di sheet Geocache) -----
+function mergeGeo(g){
+  Object.keys(g).forEach(function(k){ const v=g[k]; if(v) GEO_CACHE[k]={lat:v[0],lng:v[1],level:v[2]}; });
+  invalidateTechs();
+}
+function regeo(){
+  S.rowsAll.forEach(function(r){ const g=geocode(r); r.lat=g.lat; r.lng=g.lng; r.level=g.level; });
+  invalidateTechs();
+}
+function geoNeeds(){
+  const need=[], seen={};
+  const add=function(o){
+    if(String(o.alamat||'').trim().length<6) return;
+    if(/(-?\d{1,2}\.\d{3,})\s*[, ]\s*(\d{2,3}\.\d{3,})/.test([o.alamat,o.kec,o.kota,o.prov,o.note,o.raw,o.koord].join(' '))) return;
+    const k=geoKey(o); if(GEO_CACHE[k]||seen[k]) return;
+    seen[k]=1; need.push({k:k,alamat:o.alamat,kec:o.kec,kota:o.kota,prov:o.prov});
+  };
+  S.dayRows.forEach(add); S.sheetRoster.concat(S.local).forEach(add);
+  return need;
+}
+function geoPost(payload){
+  return fetchTimeout(String(S.cfg.api||'').trim(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow'},60000).then(readJson);
+}
+function geoLoop(){
+  S.geoRun=true; showStatus();
+  const need=geoNeeds();
+  if(!need.length) return geoDone();
+  return geoPost({aksi:'geocodeBanyak',daftar:need.slice(0,GEO_CHUNK)}).then(function(j){
+    const h=j.hasil||{};
+    mergeGeo(h); regeo();
+    if(j.kuota){ S.geoOff=true; S.geoMsg='Kuota pencarian lokasi harian Google habis. Sisa alamat memakai titik kecamatan.'; }
+    if(!Object.keys(h).length) S.geoOff=true;
+    S.geoPending=geoNeeds().length;
+    if(S.geoOff||!S.geoPending) return geoDone();
+    return geoLoop();
+  }).catch(function(e){
+    S.geoOff=true; S.geoMsg='Pencarian titik lokasi gagal ('+(e&&e.message?e.message:'periksa koneksi')+'). Pastikan Code.gs terbaru sudah di-deploy. Sementara memakai titik kecamatan.';
+    return geoDone();
+  });
+}
+function geoDone(){
+  S.geoRun=false; S.geoPending=0; regeo();
+  const added=sync(); renderAll(); showStatus(); notifySync(added);
 }
 
 // ----- Ambil data -----
@@ -1016,12 +1131,13 @@ function applyServerState(date,j){
   // Jangan timpa perubahan korlap yang belum sempat tersimpan ke spreadsheet.
   if(S.pushT||S.pushing||(S.pushed&&JSON.stringify(loadDay(date))!==S.pushed)) return;
   if(j&&j.state&&j.state.assign){
-    lsSet(LS.day+date,{assign:j.state.assign,off:j.state.off||[],init:!!j.state.init,cell:j.state.cell||{}});
+    lsSet(LS.day+date,{assign:j.state.assign,off:j.state.off||[],init:!!j.state.init,cell:j.state.cell||{},lock:j.state.lock||{}});
     S.rev=j.rev||0; S.pushed=JSON.stringify(loadDay(date));
   }
 }
 function notifySync(added){
-  if(S.fromSheet>0) toast(S.fromSheet+' order mengikuti perubahan kolom Teknisi di spreadsheet');
+  if(S.merged>0) toast(S.merged+' order dipindah ke satu teknisi karena lokasinya berdekatan');
+  else if(S.fromSheet>0) toast(S.fromSheet+' order mengikuti perubahan kolom Teknisi di spreadsheet');
   else if(added>0) toast(added+' order baru ditambahkan');
 }
 // Ambil customer, teknisi, dan penugasan bersama dari web app.
@@ -1031,6 +1147,7 @@ function refreshApi(){
   return apiGet({aksi:'data',tanggal:req}).then(function(j){
     if(S.changedAt>t0){ S.stale=true; return; }
     if(Array.isArray(j.teknisi)){ S.sheetRoster=mapTechRows(j.teknisi); invalidateTechs(); }
+    if(j.geo) mergeGeo(j.geo);
     if(Array.isArray(j.customer)){ const m=mapRows(j.customer,j.customerBaris); S.rowsAll=m.rows; S.hasDate=!!m.hasDate; S.source='api'; }
     const d=autoDate();
     if(d===req){ applyServerState(d,j); return; }
@@ -1048,6 +1165,7 @@ function refreshApi(){
     S.busy=false;
     const added=sync(); renderIfChanged(); showStatus();
     notifySync(added);
+    if(S.geoPending>0&&!S.geoRun&&!S.geoOff) geoLoop();
     // Ada perubahan lokal saat membaca: hasil bacaan sudah usang, baca ulang sebentar lagi.
     if(S.stale){ S.stale=false; setTimeout(function(){ refresh(false); },1500); }
     else if(S.failCount===1&&S.lastFetch){ setTimeout(function(){ if(!document.hidden) refresh(false); },4000); }
@@ -1058,10 +1176,12 @@ function showStatus(){
   if(S.error){ msg(S.error,true); return; }
   if(S.syncErr){ msg(S.syncErr,true); return; }
   if(!S.cfg.api){ msg('Belum tersambung ke spreadsheet. Ketuk tombol di kanan atas, lalu tempel link Apps Script.',false); return; }
+  if(S.geoPending>0){ msg('Mencari titik lokasi alamat, '+S.geoPending+' tersisa. Pembagian otomatis menyusul.'); return; }
   if(S.saving){ msg('Menyimpan ke spreadsheet...'); return; }
   const parts=[];
   if(S.lastFetch) parts.push('Dibaca dari spreadsheet pukul '+fmtTime(S.lastFetch)+', perubahan korlap tersimpan bersama');
   if(S.rowsAll.length&&!S.hasDate) parts.push('Sheet tanpa kolom Time, semua baris dipakai');
+  if(S.geoMsg) parts.push(S.geoMsg);
   msg(parts.join('. '));
 }
 function restartTimer(){
@@ -1073,12 +1193,12 @@ function restartTimer(){
 function membersOf(id){return S.dayRows.filter(function(r){return S.day.assign[r.key]===id;});}
 function loadOf(list){return list.reduce(function(s,m){return s+m.w;},0);}
 function mapsQuery(m){
-  if(m.level==='koord') return m.lat.toFixed(5)+','+m.lng.toFixed(5);
+  if(isPrecise(m)) return m.lat.toFixed(5)+','+m.lng.toFixed(5);
   const a=/https?:/i.test(m.alamat||'')?'':m.alamat;
   return [a,m.kec,m.kota].filter(Boolean).join(', ');
 }
 function homeQuery(t){
-  if(t.level==='koord') return t.lat.toFixed(5)+','+t.lng.toFixed(5);
+  if(isPrecise(t)) return t.lat.toFixed(5)+','+t.lng.toFixed(5);
   return [t.alamat,t.kec,t.kota].filter(Boolean).join(', ');
 }
 function moveOptions(sel){
@@ -1092,6 +1212,8 @@ function chipsOf(m){
   if(m.jamText) chips+='<span class="chip time">'+esc(m.jamText)+'</span>';
   if(m.toren>1) chips+='<span class="chip">'+m.toren+' toren</span>';
   if(m.level==='kota') chips+='<span class="chip warn">lokasi kasar</span>';
+  if(m.level==='kec') chips+='<span class="chip warn">titik kecamatan</span>';
+  if(m.level==='kel') chips+='<span class="chip warn">perkiraan kelurahan</span>';
   if(m.pin&&!m.pinMiss&&!m.pinKolom) chips+='<span class="chip">minta '+esc(m.pin)+'</span>';
   if(m.pinMiss) chips+='<span class="chip warn">teknisi '+esc(m.pin)+' tidak ada di daftar</span>';
   if(m.grpJml>1) chips+='<span class="chip">satu lokasi ('+m.grpJml+')</span>';
@@ -1168,7 +1290,7 @@ function cardHTML(t){
 function renderTugas(){
   const out=$('out'), rows=S.dayRows, T=techs(), avail=availTechs();
   const A=S.day.assign, off=T.filter(function(t){return isOff(t.id);});
-  const unassigned=rows.filter(function(r){return !A[r.key];});
+  const unassigned=S.geoPending>0?[]:rows.filter(function(r){return !A[r.key];});
   const rs=S.reschedRows||[];
   let h='';
   if(S.undo&&S.undo.date===S.date) h+='<div class="undo"><span>'+esc(S.undo.label)+'</span><button class="btn ghost small" data-act="undo" type="button">Urungkan</button></div>';
@@ -1186,7 +1308,7 @@ function renderTugas(){
   // sheet yang diisi korlap (SUDAH/BELUM), lalu berlaku untuk semua order hari itu sekaligus.
   const dicekStatus=rows.length?rows[0].dicek:false;
   h+='<div class="card"><h2>'+rows.length+' order, '+avail.length+' teknisi hadir</h2>'
-    +'<p class="hint">'+esc(fmtDate(S.date))+'.'+(approx?' Jarak dihitung dari titik tengah kecamatan, jadi berupa perkiraan.':'')+'</p>'
+    +'<p class="hint">'+esc(fmtDate(S.date))+'.'+(approx?' '+approx+' order memakai titik tengah kecamatan, jadi jaraknya berupa perkiraan.':'')+'</p>'
     +(rows.length?'<p class="hint">Order hari ini <b>'+(dicekStatus?'sudah':'belum')+'</b> dicek korlap.</p>':'')
     +'</div>';
   const noGeo=avail.filter(function(t){return t.lat==null;});
@@ -1374,7 +1496,7 @@ function moveJob(key,tid){
   if(!S.day.cell) S.day.cell={};
   // Catat isi kolom Teknisi saat ini supaya bacaan ulang di tengah proses tidak mengembalikan pilihan lama.
   if(S.day.cell[key]===undefined) S.day.cell[key]=r.tekCell||'';
-  S.day.assign[key]=tid; S.force.add(key); S.wbToast=true;
+  S.day.assign[key]=tid; if(!S.day.lock) S.day.lock={}; S.day.lock[key]=1; S.force.add(key); S.wbToast=true;
   saveDay(); renderAll();
   if(!S.cfg.api) toast('Belum tersambung ke spreadsheet, perubahan hanya tersimpan di perangkat ini');
 }
@@ -1427,7 +1549,7 @@ function waText(t,part){
     if(a.teks) s+='\uD83D\uDCCD '+a.teks+'\n';
     if(m.note) s+='\uD83D\uDCDD '+m.note+'\n';
     if(a.urls.length) s+='\uD83D\uDDFA\uFE0F '+a.urls[0]+'\n';
-    else if(m.level==='koord') s+='\uD83D\uDDFA\uFE0F https://maps.google.com/?q='+m.lat.toFixed(6)+','+m.lng.toFixed(6)+'\n';
+    else if(isPrecise(m)) s+='\uD83D\uDDFA\uFE0F https://maps.google.com/?q='+m.lat.toFixed(6)+','+m.lng.toFixed(6)+'\n';
   });
   return s.trim();
 }
@@ -1468,9 +1590,9 @@ function renderAll(){ S.lastSig=sigNow(); renderTugas(); renderRoster(); renderM
 // Bacaan otomatis hanya menggambar ulang bila isinya berubah, supaya layar tidak berkedip.
 function sigNow(){
   return JSON.stringify([S.date,
-    S.dayRows.map(function(r){return [r.key,r.note,r.pin,r.baris,r.level,r.dicek];}),
+    S.dayRows.map(function(r){return [r.key,r.note,r.pin,r.baris,r.level,r.lat,r.dicek];}),
     (S.reschedRows||[]).map(function(r){return [r.key,r.reschedNote];}),
-    S.day.assign,S.day.off,
+    S.day.assign,S.day.off,S.geoPending,
     techs().map(function(t){return [t.id,t.nama,t.telp,t.alamat,t.kec,t.kota,t.lat];}),
     !!S.cfg.api]);
 }
@@ -1517,7 +1639,7 @@ function onPetaClick(e){
   const key=pt.getAttribute('data-key');
   if(key){
     const m=S.dayRows.find(function(r){return r.key===key;}); const t=m&&techById(S.day.assign[m.key]);
-    if(m) $('info').textContent=(m.nama||'Tanpa nama')+', '+[m.kec,m.kota].filter(Boolean).join(', ')+(t?' | '+t.nama:'');
+    if(m) $('info').textContent=(m.nama||'Tanpa nama')+', '+[m.kec,m.kota].filter(Boolean).join(', ')+(t?' | '+t.nama:'')+(isPrecise(m)?' | titik dari alamat':(m.level==='kel'?' | perkiraan kelurahan':' | titik kecamatan'));
     return;
   }
   const tid=pt.getAttribute('data-tid'), t=tid&&techById(tid);
